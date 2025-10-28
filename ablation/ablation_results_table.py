@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Generate ablation study results table for paper.
-Compares: Full Model vs w/o MoE vs w/o Prior vs w/o Codebook
+Compares: Full Model vs w/o MoE vs w/o Prior vs w/o Codebook vs Autoregressive
 Creates both LaTeX and Markdown formats.
 """
 
@@ -146,7 +146,8 @@ def generate_latex_table(results: Dict) -> str:
         ('full', 'Full Model'),
         ('wo_prior', 'w/o Prior'),
         ('wo_moe', 'w/o MoE'),
-        ('wo_Codebook', 'w/o Codebook')
+        ('wo_Codebook', 'w/o Codebook'),
+        ('autoregressive', 'Autoregressive')
     ]:
         if 'csi300' in results and model_name in results['csi300']:
             data = results['csi300'][model_name]
@@ -174,7 +175,8 @@ def generate_latex_table(results: Dict) -> str:
         ('full', 'Full Model'),
         ('wo_prior', 'w/o Prior'),
         ('wo_moe', 'w/o MoE'),
-        ('wo_Codebook', 'w/o Codebook')
+        ('wo_Codebook', 'w/o Codebook'),
+        ('autoregressive', 'Autoregressive')
     ]:
         if 'sp500' in results and model_name in results['sp500']:
             data = results['sp500'][model_name]
@@ -214,7 +216,8 @@ def generate_markdown_table(results: Dict) -> str:
         ('full', '**Full Model** (Baseline)'),
         ('wo_prior', 'w/o Prior'),
         ('wo_moe', 'w/o MoE'),
-        ('wo_Codebook', 'w/o Codebook')
+        ('wo_Codebook', 'w/o Codebook'),
+        ('autoregressive', 'Autoregressive')
     ]:
         if 'csi300' in results and model_name in results['csi300']:
             data = results['csi300'][model_name]
@@ -238,7 +241,8 @@ def generate_markdown_table(results: Dict) -> str:
         ('full', '**Full Model** (Baseline)'),
         ('wo_prior', 'w/o Prior'),
         ('wo_moe', 'w/o MoE'),
-        ('wo_Codebook', 'w/o Codebook')
+        ('wo_Codebook', 'w/o Codebook'),
+        ('autoregressive', 'Autoregressive')
     ]:
         if 'sp500' in results and model_name in results['sp500']:
             data = results['sp500'][model_name]
@@ -261,22 +265,24 @@ def generate_markdown_table(results: Dict) -> str:
         full_ric = results['csi300']['full'].get('RankIC', {}).get('mean', 0)
 
         md.append("### CSI300 Performance Degradation\n")
-        for model_name, display_name in [('wo_prior', 'Prior'), ('wo_moe', 'MoE'), ('wo_Codebook', 'Codebook')]:
+        for model_name, display_name in [('wo_prior', 'Prior'), ('wo_moe', 'MoE'), ('wo_Codebook', 'Codebook'), ('autoregressive', 'Autoregressive (vs Bidirectional)')]:
             if model_name in results['csi300']:
                 ablation_ric = results['csi300'][model_name].get('RankIC', {}).get('mean', 0)
                 drop = (full_ric - ablation_ric) / full_ric * 100 if full_ric > 0 else 0
-                md.append(f"- **w/o {display_name}**: {drop:.2f}% drop in RankIC")
+                prefix = "w/o " if model_name != 'autoregressive' else ""
+                md.append(f"- **{prefix}{display_name}**: {drop:.2f}% drop in RankIC")
 
     # Calculate performance drops for SP500
     if 'sp500' in results and 'full' in results['sp500']:
         full_ric = results['sp500']['full'].get('RankIC', {}).get('mean', 0)
 
         md.append("\n### S&P500 Performance Degradation\n")
-        for model_name, display_name in [('wo_prior', 'Prior'), ('wo_moe', 'MoE'), ('wo_Codebook', 'Codebook')]:
+        for model_name, display_name in [('wo_prior', 'Prior'), ('wo_moe', 'MoE'), ('wo_Codebook', 'Codebook'), ('autoregressive', 'Autoregressive (vs Bidirectional)')]:
             if model_name in results['sp500']:
                 ablation_ric = results['sp500'][model_name].get('RankIC', {}).get('mean', 0)
                 drop = (full_ric - ablation_ric) / full_ric * 100 if full_ric > 0 else 0
-                md.append(f"- **w/o {display_name}**: {drop:.2f}% drop in RankIC")
+                prefix = "w/o " if model_name != 'autoregressive' else ""
+                md.append(f"- **{prefix}{display_name}**: {drop:.2f}% drop in RankIC")
 
     md.append("\n### Component Importance Ranking\n")
     md.append("Based on performance degradation, we rank the importance of each component:")
@@ -312,7 +318,7 @@ def main():
             print(f"    ✗ Not found")
 
         # Ablation studies
-        for ablation_type in ['wo_prior', 'wo_moe', 'wo_Codebook']:
+        for ablation_type in ['wo_prior', 'wo_moe', 'wo_Codebook', 'autoregressive']:
             print(f"  - {ablation_type}...")
             ablation_data = collect_ablation_data(res_dir, ablation_type, market)
             if ablation_data:

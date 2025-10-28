@@ -7,7 +7,7 @@ import pytorch_lightning as pl
 import math
 
 # Use the original MoE-based LoadingGenerator; prior factors will be ignored downstream
-from module.autoregressive import LoadingGenerator
+from module.bidirectional import LoadingGenerator
 
 from utils import get_root_dir, calc_ic
 from utils.rankloss import RankLoss

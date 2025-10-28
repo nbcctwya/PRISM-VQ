@@ -2,6 +2,7 @@
 """
 3D Sensitivity Analysis for VQK, d_model, and MoE experts
 Generates 3D surface plots showing how RankIC varies with these hyperparameters.
+IEEE TKDE style optimized.
 """
 
 import os
@@ -14,12 +15,31 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import cm
 from scipy.interpolate import griddata
+import matplotlib
+from matplotlib.patches import FancyBboxPatch
 
-try:
-    import seaborn as sns
-    sns.set_theme(style="whitegrid")
-except ImportError:
-    plt.style.use("seaborn-v0_8-whitegrid")
+# IEEE style configuration
+matplotlib.rcParams['font.family'] = 'serif'
+matplotlib.rcParams['font.serif'] = ['Times New Roman', 'DejaVu Serif']
+matplotlib.rcParams['mathtext.fontset'] = 'stix'
+matplotlib.rcParams['font.size'] = 10
+matplotlib.rcParams['axes.labelsize'] = 10
+matplotlib.rcParams['axes.titlesize'] = 11
+matplotlib.rcParams['xtick.labelsize'] = 9
+matplotlib.rcParams['ytick.labelsize'] = 9
+matplotlib.rcParams['legend.fontsize'] = 9
+matplotlib.rcParams['figure.titlesize'] = 12
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
+
+# Clean white background for IEEE style
+plt.style.use('default')
+matplotlib.rcParams['axes.facecolor'] = 'white'
+matplotlib.rcParams['figure.facecolor'] = 'white'
+matplotlib.rcParams['axes.edgecolor'] = 'black'
+matplotlib.rcParams['axes.linewidth'] = 0.8
+matplotlib.rcParams['grid.alpha'] = 0.3
+matplotlib.rcParams['grid.linestyle'] = ':'
 
 
 def parse_folder_name(folder_name: str) -> Dict:
@@ -157,13 +177,14 @@ def plot_3d_surface(
     data: List[Dict],
     market: str,
     save_dir: str = "sensitivity/plots",
-    include_suptitle: bool = False,   # ← 전체 제목 기본 비표시
+    include_suptitle: bool = False,
 ):
     if not data:
         print(f"No data available for {market}")
         return
 
-    fig = plt.figure(figsize=(16, 4.5))
+    # IEEE 2-column width: ~3.5 inches per column, full width ~7.16 inches
+    fig = plt.figure(figsize=(18, 5.5))
 
     BEST_DM = 64
     BEST_VQK = 512
@@ -184,7 +205,7 @@ def plot_3d_surface(
             'Codebook Size', 'MoE Experts', 'RankIC',
             '(a) Codebook vs MoE', vmin, vmax, add_colorbar=False
         )
-        ax1.set_title('(a) Codebook vs MoE', pad=6)  # ← 플롯과 더 붙임
+        ax1.set_title('(a) Codebook vs MoE', pad=10, fontweight='bold')
 
     ax2 = fig.add_subplot(132, projection='3d')
     filtered_data2 = [d for d in data if d['mo'] == BEST_MO]
@@ -194,10 +215,10 @@ def plot_3d_surface(
         ric_vals = np.array([d['RankIC'] for d in filtered_data2])
         scatter2 = plot_3d_subplot(
             ax2, vqk_vals, dm_vals, ric_vals,
-            'Codebook Size', '$d_{model}$', 'RankIC',
-            '(b) Codebook vs $d_{model}$', vmin, vmax, add_colorbar=False
+            'Codebook Size', '$d$', 'RankIC',
+            '(b) Codebook vs $d$', vmin, vmax, add_colorbar=False
         )
-        ax2.set_title('(b) Codebook vs $d_{model}$', pad=6)  # ← 플롯과 더 붙임
+        ax2.set_title('(b) Codebook vs $d$', pad=10, fontweight='bold')
 
     ax3 = fig.add_subplot(133, projection='3d')
     filtered_data3 = [d for d in data if d['VQK'] == BEST_VQK]
@@ -207,58 +228,113 @@ def plot_3d_surface(
         ric_vals = np.array([d['RankIC'] for d in filtered_data3])
         scatter3 = plot_3d_subplot(
             ax3, dm_vals, mo_vals, ric_vals,
-            '$d_{model}$', 'MoE Experts', 'RankIC',
-            '(c) $d_{model}$ vs MoE', vmin, vmax, add_colorbar=False
+            '$d$', 'MoE Experts', 'RankIC',
+            '(c) $d$ vs MoE', vmin, vmax, add_colorbar=False
         )
-        ax3.set_title('(c) $d_{model}$ vs MoE', pad=6)  # ← 플롯과 더 붙임
+        ax3.set_title('(c) $d$ vs MoE', pad=10, fontweight='bold')
 
-    # 단일 컬러바
+    # Enhanced colorbar with better visibility
     if filtered_data1:
-        cbar_ax = fig.add_axes([0.92, 0.15, 0.015, 0.7])
+        cbar_ax = fig.add_axes([0.92, 0.18, 0.012, 0.65])
         cbar = fig.colorbar(scatter1, cax=cbar_ax)
-        cbar.set_label('RankIC', fontsize=10)
+        cbar.set_label('RankIC', fontsize=11, weight='bold')
         cbar.ax.tick_params(labelsize=9)
+        cbar.outline.set_linewidth(0.8)
 
-    # 전체 제목은 기본적으로 표시 안 함
     if include_suptitle:
         market_name = 'CSI300' if market == 'csi300' else 'S&P500'
         fig.suptitle(f'{market_name}: Hyperparameter Sensitivity Analysis',
-                     fontsize=13, y=0.99, fontweight='normal')
-        # suptitle이 있을 때만 서브플롯 상단을 약간 내림
-        plt.subplots_adjust(left=0.05, right=0.90, top=0.90, bottom=0.12, wspace=0.22)
+                     fontsize=13, y=0.98, fontweight='bold')
+        plt.subplots_adjust(left=0.04, right=0.91, top=0.92, bottom=0.10, wspace=0.25)
     else:
-        # suptitle 없으니 상단 여백을 올려서 “(b)와 겹침” 자체를 원천 제거
-        plt.subplots_adjust(left=0.05, right=0.90, top=0.96, bottom=0.12, wspace=0.22)
+        plt.subplots_adjust(left=0.04, right=0.91, top=0.96, bottom=0.10, wspace=0.25)
 
     os.makedirs(save_dir, exist_ok=True)
     out_path = os.path.join(save_dir, f'3d_sensitivity_{market}.png')
-    fig.savefig(out_path, dpi=200, bbox_inches='tight')
+    fig.savefig(out_path, dpi=300, bbox_inches='tight', facecolor='white', edgecolor='none')
     print(f"Saved 3D plot: {out_path}")
     plt.close(fig)
 
 
 def plot_3d_subplot(ax, x_values, y_values, z_values, xlabel, ylabel, zlabel, title,
                     vmin=None, vmax=None, add_colorbar=True):
-    """Plot 3D scatter with surface interpolation."""
+    """Plot 3D scatter with surface interpolation and enhanced value visibility."""
 
     # Use a professional colormap suitable for papers
     cmap = 'Blues'  # Professional single-color gradient
 
-    # Create scatter plot with unified color range
+    # Create scatter plot with larger markers and better contrast
     scatter = ax.scatter(x_values, y_values, z_values, c=z_values,
-                        cmap=cmap, s=120, alpha=0.9, edgecolors='darkblue',
-                        linewidths=0.8, vmin=vmin, vmax=vmax)
+                        cmap=cmap, s=250, alpha=0.95, edgecolors='navy',
+                        linewidths=1.5, vmin=vmin, vmax=vmax, depthshade=True)
 
-    # Add value labels to each point (small font)
+    # Find best and worst values for highlighting
+    z_max_idx = np.argmax(z_values)
+    z_min_idx = np.argmin(z_values)
+
+    # Calculate smart text offset based on data range to avoid overlap
+    z_range = z_values.max() - z_values.min()
+    z_offset = z_range * 0.08  # 8% of range for vertical offset
+
+    # Group points by y-value to handle overlaps
+    y_unique = sorted(set(y_values))
+    y_spacing = {}
+    for y_val in y_unique:
+        mask = y_values == y_val
+        indices = np.where(mask)[0]
+        y_spacing[y_val] = indices
+
+    # Add value labels with smart positioning to avoid overlaps
     for i, (x, y, z) in enumerate(zip(x_values, y_values, z_values)):
-        ax.text(x, y, z, f'{z:.4f}', fontsize=7, ha='center', va='bottom')
+        # Determine text properties based on value ranking
+        if i == z_max_idx:
+            # Highlight best value
+            fontsize = 11
+            fontweight = 'bold'
+            color = 'darkgreen'
+        elif i == z_min_idx:
+            # Highlight worst value
+            fontsize = 11
+            fontweight = 'bold'
+            color = 'darkred'
+        else:
+            # Regular values
+            fontsize = 10
+            fontweight = 'bold'
+            color = 'black'
 
-    # Try to create surface interpolation if we have enough points
+        # Smart positioning: offset based on x position within same y-group
+        indices_in_group = y_spacing[y]
+        position_in_group = np.where(indices_in_group == i)[0][0]
+        num_in_group = len(indices_in_group)
+
+        # Alternate left/right for same y-value to reduce overlap
+        if num_in_group > 1:
+            if position_in_group == 0:
+                ha_align = 'right'
+                x_offset = -0.02 * (x_values.max() - x_values.min())
+            elif position_in_group == num_in_group - 1:
+                ha_align = 'left'
+                x_offset = 0.02 * (x_values.max() - x_values.min())
+            else:
+                ha_align = 'center'
+                x_offset = 0
+        else:
+            ha_align = 'center'
+            x_offset = 0
+
+        # Position text with offset
+        ax.text(x + x_offset, y, z + z_offset, f'{z:.4f}',
+                fontsize=fontsize, fontweight=fontweight, color=color,
+                ha=ha_align, va='bottom',
+                zorder=1000)  # Ensure text is on top
+
+    # Try to create surface interpolation with contour lines if we have enough points
     if len(x_values) >= 4:
         try:
             # Create grid for interpolation
-            xi = np.linspace(x_values.min(), x_values.max(), 20)
-            yi = np.linspace(y_values.min(), y_values.max(), 20)
+            xi = np.linspace(x_values.min(), x_values.max(), 30)
+            yi = np.linspace(y_values.min(), y_values.max(), 30)
             xi, yi = np.meshgrid(xi, yi)
 
             # Interpolate
@@ -267,14 +343,28 @@ def plot_3d_subplot(ax, x_values, y_values, z_values, xlabel, ylabel, zlabel, ti
             # Plot surface with transparency
             surf = ax.plot_surface(xi, yi, zi, cmap=cmap, alpha=0.25,
                                   linewidth=0, antialiased=True, vmin=vmin, vmax=vmax)
+
+            # Add contour lines on the surface for better readability
+            # Project contours at different z-levels
+            contour_levels = np.linspace(np.nanmin(zi), np.nanmax(zi), 8)
+
+            # Contour lines on the surface
+            ax.contour(xi, yi, zi, levels=contour_levels, colors='darkblue',
+                      linewidths=0.8, alpha=0.6, linestyles='solid')
+
+            # Optional: Add contour projection on the bottom plane for reference
+            offset_z = z_values.min() - (z_values.max() - z_values.min()) * 0.05
+            ax.contour(xi, yi, zi, levels=contour_levels, colors='gray',
+                      linewidths=0.5, alpha=0.3, linestyles='dashed',
+                      offset=offset_z, zdir='z')
+
         except Exception as e:
             pass  # Silently skip if interpolation fails
 
-    # Labels and title
-    ax.set_xlabel(xlabel, fontsize=10, labelpad=8)
-    ax.set_ylabel(ylabel, fontsize=10, labelpad=8)
-    ax.set_zlabel(zlabel, fontsize=10, labelpad=8)
-    ax.set_title(title, fontsize=11, pad=15, fontweight='normal')
+    # Labels with better formatting
+    ax.set_xlabel(xlabel, fontsize=11, labelpad=10, fontweight='bold')
+    ax.set_ylabel(ylabel, fontsize=11, labelpad=10, fontweight='bold')
+    ax.set_zlabel(zlabel, fontsize=11, labelpad=10, fontweight='bold')
 
     # Set ticks to actual values only
     x_unique = sorted(set(x_values))
@@ -282,81 +372,32 @@ def plot_3d_subplot(ax, x_values, y_values, z_values, xlabel, ylabel, zlabel, ti
     ax.set_xticks(x_unique)
     ax.set_yticks(y_unique)
 
-    # Adjust tick label size
-    ax.tick_params(axis='both', which='major', labelsize=9)
+    # Enhanced tick formatting
+    ax.tick_params(axis='both', which='major', labelsize=10, width=1.0, length=5)
+    ax.tick_params(axis='z', which='major', labelsize=9, pad=5)
 
-    # Adjust viewing angle for better visibility
-    ax.view_init(elev=20, azim=45)
+    # Adjust viewing angle for better visibility of labels
+    ax.view_init(elev=22, azim=50)
 
-    # Add subtle grid
-    ax.grid(True, linestyle=':', alpha=0.3, linewidth=0.5)
+    # Enhanced grid
+    ax.grid(True, linestyle=':', alpha=0.4, linewidth=0.6, color='gray')
+
+    # Set pane colors to white for cleaner look
+    ax.xaxis.pane.fill = True
+    ax.yaxis.pane.fill = True
+    ax.zaxis.pane.fill = True
+    ax.xaxis.pane.set_facecolor('white')
+    ax.yaxis.pane.set_facecolor('white')
+    ax.zaxis.pane.set_facecolor('white')
+    ax.xaxis.pane.set_edgecolor('gray')
+    ax.yaxis.pane.set_edgecolor('gray')
+    ax.zaxis.pane.set_edgecolor('gray')
+    ax.xaxis.pane.set_alpha(0.9)
+    ax.yaxis.pane.set_alpha(0.9)
+    ax.zaxis.pane.set_alpha(0.9)
 
     return scatter
 
-
-def plot_3d_compact(data: List[Dict], market: str, save_dir: str = "sensitivity/plots"):
-    """
-    Create a compact 3D scatter plot showing all three dimensions at once.
-    Color represents RankIC, with VQK, dm, and mo as the three axes.
-    """
-    if not data:
-        print(f"No data available for {market}")
-        return
-
-    # Extract data
-    vqk_values = np.array([d['VQK'] for d in data])
-    dm_values = np.array([d['dm'] for d in data])
-    mo_values = np.array([d['mo'] for d in data])
-    rankic_values = np.array([d['RankIC'] for d in data])
-
-    # Create figure
-    fig = plt.figure(figsize=(9, 7))
-    ax = fig.add_subplot(111, projection='3d')
-
-    # Create scatter plot with color representing RankIC
-    scatter = ax.scatter(vqk_values, dm_values, mo_values,
-                        c=rankic_values, cmap='viridis',
-                        s=250, alpha=0.8, edgecolors='k', linewidths=1.5)
-
-    # Add value labels to each point
-    for i, (vqk, dm, mo, ric) in enumerate(zip(vqk_values, dm_values, mo_values, rankic_values)):
-        ax.text(vqk, dm, mo, f'{ric:.4f}', fontsize=8, ha='center', va='bottom')
-
-    # Labels and title
-    ax.set_xlabel('Codebook Size (VQK)', fontsize=11, labelpad=10)
-    ax.set_ylabel('d_model', fontsize=11, labelpad=10)
-    ax.set_zlabel('MoE Experts', fontsize=11, labelpad=10)
-    ax.set_title(f'{market.upper()}: 3D Sensitivity Analysis\n(Color = RankIC)',
-                 fontsize=13, pad=20)
-
-    # Set ticks to actual values only
-    vqk_unique = sorted(set(vqk_values))
-    dm_unique = sorted(set(dm_values))
-    mo_unique = sorted(set(mo_values))
-    ax.set_xticks(vqk_unique)
-    ax.set_yticks(dm_unique)
-    ax.set_zticks(mo_unique)
-
-    # Add colorbar with reduced width
-    cbar = plt.colorbar(scatter, ax=ax, shrink=0.5, aspect=12, pad=0.05)
-    cbar.set_label('RankIC', fontsize=9)
-    cbar.ax.tick_params(labelsize=8)
-
-    # Adjust viewing angle for better visibility
-    ax.view_init(elev=15, azim=45)
-
-    # Add grid
-    ax.grid(True, linestyle=':', alpha=0.4)
-
-    plt.tight_layout()
-
-    # Save figure
-    os.makedirs(save_dir, exist_ok=True)
-    out_path = os.path.join(save_dir, f'3d_sensitivity_compact_{market}.png')
-    fig.savefig(out_path, dpi=180, bbox_inches='tight')
-    print(f"Saved compact 3D plot: {out_path}")
-
-    plt.close(fig)
 
 
 def main():
@@ -382,7 +423,6 @@ def main():
             # Generate plots
             print(f"\nGenerating 3D plots for {market}...")
             plot_3d_surface(data, market)
-            plot_3d_compact(data, market)
         else:
             print(f"No data found for {market}")
 

@@ -10,7 +10,7 @@ import pytorch_lightning as pl
 import matplotlib.pyplot as plt
 
 # Import MoE-free LoadingGenerator
-from module.autoregressive_wo_moe import LoadingGeneratorWOMoE as LoadingGenerator
+from module.bidirectional_wo_moe import LoadingGeneratorWOMoE as LoadingGenerator
 
 from utils import get_root_dir, calc_ic
 from utils.rankloss import RankLoss

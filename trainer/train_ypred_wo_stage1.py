@@ -8,7 +8,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 import wandb
 import pytorch_lightning as pl
 import matplotlib.pyplot as plt
-from module.autoregressive import LoadingGenerator
+from module.bidirectional import LoadingGenerator
 from utils import get_root_dir, calc_ic
 from utils.rankloss import RankLoss
 from torch.optim.lr_scheduler import LambdaLR

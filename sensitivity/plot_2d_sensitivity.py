@@ -318,10 +318,13 @@ def plot_2d_subplot(ax, data, x_key, y_key, xlabel, ylabel, title, vmin=None, vm
                    bbox=dict(boxstyle='round,pad=0.3', facecolor='white',
                             edgecolor='black', alpha=0.9, linewidth=1.0))
 
-    # Set labels and title
+    # Set labels
     ax.set_xlabel(xlabel, fontsize=12, fontweight='bold')
     ax.set_ylabel(ylabel, fontsize=12, fontweight='bold')
-    ax.set_title(title, fontsize=13, pad=10, fontweight='bold')
+
+    # Add title at bottom
+    ax.text(0.5, -0.18, title, transform=ax.transAxes,
+            fontsize=13, fontweight='bold', ha='center', va='top')
 
     # Set ticks to actual values
     ax.set_xticks(x_unique)

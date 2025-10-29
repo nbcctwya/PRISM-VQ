@@ -205,7 +205,8 @@ def plot_3d_surface(
             'Codebook Size', 'MoE Experts', 'RankIC',
             '(a) Codebook vs MoE', vmin, vmax, add_colorbar=False
         )
-        ax1.set_title('(a) Codebook vs MoE', pad=10, fontweight='bold')
+        ax1.text2D(0.5, -0.10, '(a) Codebook vs MoE', transform=ax1.transAxes,
+                   fontsize=11, fontweight='bold', ha='center', va='top')
 
     ax2 = fig.add_subplot(132, projection='3d')
     filtered_data2 = [d for d in data if d['mo'] == BEST_MO]
@@ -218,7 +219,8 @@ def plot_3d_surface(
             'Codebook Size', '$d$', 'RankIC',
             '(b) Codebook vs $d$', vmin, vmax, add_colorbar=False
         )
-        ax2.set_title('(b) Codebook vs $d$', pad=10, fontweight='bold')
+        ax2.text2D(0.5, -0.10, '(b) Codebook vs $d$', transform=ax2.transAxes,
+                   fontsize=11, fontweight='bold', ha='center', va='top')
 
     ax3 = fig.add_subplot(133, projection='3d')
     filtered_data3 = [d for d in data if d['VQK'] == BEST_VQK]
@@ -231,7 +233,8 @@ def plot_3d_surface(
             '$d$', 'MoE Experts', 'RankIC',
             '(c) $d$ vs MoE', vmin, vmax, add_colorbar=False
         )
-        ax3.set_title('(c) $d$ vs MoE', pad=10, fontweight='bold')
+        ax3.text2D(0.5, -0.10, '(c) $d$ vs MoE', transform=ax3.transAxes,
+                   fontsize=11, fontweight='bold', ha='center', va='top')
 
     # Enhanced colorbar with better visibility
     if filtered_data1:

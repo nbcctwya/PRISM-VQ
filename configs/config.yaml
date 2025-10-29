@@ -33,7 +33,7 @@ vqvae:
     pred_weight: 0.0001
 
 data:
-  universe: 'csi300' # !
+  universe: 'sp500' # !
   data_path: 'dataset/data'
   window_size: 20
   step: 1
@@ -41,20 +41,22 @@ data:
   valid_period : ["2020-01-01", "2021-12-31"] # 2년
   test_period  : ["2022-01-01", "2024-12-31"] # 3년
 
+#sp500: sp500_h128_VQK512_C128_emb128_dl2p10_s42-epoch=28-val_loss=0.7354.ckpt
 predictor: #csi300 : "csi300_h128_VQK512_C128_emb128_dl2p10_s42-epoch=8-val_loss=0.5882.ckpt"
-  saved_model: "csi300_h128_VQK512_C128_emb128_dl2p10_s42-epoch=8-val_loss=0.5882.ckpt"
+  saved_model: "sp500_h128_VQK512_C128_emb128_dl2p10_s42-epoch=28-val_loss=0.7354.ckpt"
   num_features: 158
   individual: False
-  aux_weight: 0.01 # ! csi300 : 0.01, sp500 : 0.001
+  aux_weight: 0.001 # ! csi300 : 0.01, sp500 : 0.001
   kernel_size: 3
   k: ${half:${predictor.n_expert}} 
-  n_expert: 2   # ! csi300: 2, sp500: 8
+  n_expert: 8   # ! csi300: 2, sp500: 8
   pred_len: 20  
   moe_hidden: 64 
   dropout: 0.1
 
   transformer:
-    num_heads: 2  #! csi300: 2, sp500: 4
+    pe_kind: 'rope'
+    num_heads: 4  #! csi300: 2, sp500: 4
     num_layers: 1
     d_model: 64   
     dim_feedforward: 128

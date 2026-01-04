@@ -11,7 +11,7 @@
 
 This repository contains the implementation of **PRISM-VQ** (PRior-Informed Stock Model with Vector Quantization), a unified dynamic factor model for stock return prediction.
 
-📄 **Paper**: Submitted to IEEE Transactions on Knowledge and Data Engineering (TKDE)
+📄 **Paper**: Submitted to IJCAI-ECAI 2026
 
 ---
 

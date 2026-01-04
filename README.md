@@ -1,4 +1,4 @@
-# PRISM-VQ: Fusing Financial Priors and Vector-Quantized Latent Factors for Dynamic Cross-Sectional Stock Prediction
+# Vector-Quantized Discrete Latent Factors Meet Financial Priors: Dynamic Cross-Sectional Stock Rank Prediction
 
 <div align="center">
 

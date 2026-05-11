@@ -53,7 +53,9 @@ def Cal_IC_IR(df, column1='LABEL0', column2='Pred'):
     return metrics
 
 @torch.no_grad()
-def run_inference(model, data_loader, config, device='cuda'):
+def run_inference(model, data_loader, config, device=None):
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     config_vq = config['vqvae']
     config_pred = config['predictor']

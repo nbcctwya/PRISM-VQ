@@ -266,7 +266,7 @@ class GenerateReturn(pl.LightningModule):
 
     def init_from_ckpt(self, path, ignore_keys=list()):
         """Load pretrained model weights."""
-        sd = torch.load(path, map_location="cuda")
+        sd = torch.load(path, map_location=torch.device("cuda" if torch.cuda.is_available() else "cpu"))
 
         if "state_dict" in sd:
             sd = sd["state_dict"]
@@ -284,7 +284,7 @@ class GenerateReturn(pl.LightningModule):
     def load_pretrained_vqvae(self, checkpoint_path=None):
         """Load Encoder, Quantizer, and RevIN weights from a pretrained VQ-VAE checkpoint."""
         print(f"Loading pretrained VQ-VAE from {checkpoint_path}...")
-        checkpoint = torch.load(checkpoint_path, map_location="cuda")
+        checkpoint = torch.load(checkpoint_path, map_location=torch.device("cuda" if torch.cuda.is_available() else "cpu"))
 
         if "state_dict" in checkpoint:
             state_dict = checkpoint["state_dict"]

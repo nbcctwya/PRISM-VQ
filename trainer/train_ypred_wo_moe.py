@@ -242,7 +242,7 @@ class GenerateReturn(pl.LightningModule):
             self.log('val_loss_epoch', val_loss_epoch, on_step=False, on_epoch=True, logger=True, sync_dist=True)
 
     def init_from_ckpt(self, path, ignore_keys=list()):
-        sd = torch.load(path, map_location="cuda")
+        sd = torch.load(path, map_location=torch.device("cuda" if torch.cuda.is_available() else "cpu"))
         if "state_dict" in sd:
             sd = sd["state_dict"]
         keys = list(sd.keys())
@@ -256,7 +256,7 @@ class GenerateReturn(pl.LightningModule):
 
     def load_pretrained_vqvae(self, checkpoint_path=None):
         print(f"Loading pretrained VQ-VAE from {checkpoint_path}...")
-        checkpoint = torch.load(checkpoint_path, map_location="cuda")
+        checkpoint = torch.load(checkpoint_path, map_location=torch.device("cuda" if torch.cuda.is_available() else "cpu"))
         if "state_dict" in checkpoint:
             state_dict = checkpoint["state_dict"]
         else:

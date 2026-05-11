@@ -19,11 +19,10 @@ vqvae:
     contras_loss: True
 
   decoder:
-    norm_type: 'none'     
-    num_groups: 8         
+    norm_type: 'none'
+    num_groups: 8
     hidden_channels: 128
     initial_T: 5
-    ortho_loss_weight: 0.1
 
   predictor:
     pred_len: 10 
@@ -75,7 +74,7 @@ train:
   batch_size: 300 
   learning_rate: 0.0001 
   num_epochs: 70
-  project_name: "INFU"
+  project_name: "PRISM-VQ"
   run_name: "auto"
   gpu_counts: 1
   precision: 32 

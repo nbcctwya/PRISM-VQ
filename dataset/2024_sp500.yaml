@@ -1,5 +1,5 @@
 qlib_init:
-  provider_uri: "~/.qlib/qlib_data/us_data" #"workspace/DVQ-DFM/qlib/qlib_data/us_data"
+  provider_uri: "~/.qlib/qlib_data/us_data"
   region: us
 market: &market sp500
 benchmark: &benchmark ^gspc

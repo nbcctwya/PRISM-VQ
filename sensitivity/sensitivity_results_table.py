@@ -4,11 +4,16 @@ Generate sensitivity analysis results table for paper.
 Creates both LaTeX and Markdown formats.
 """
 
+import argparse
 import os
 import re
 import csv
-import numpy as np
+from pathlib import Path
 from typing import Dict, List
+
+import numpy as np
+
+DEFAULT_RES_DIR = str(Path(__file__).resolve().parent.parent / "res")
 
 
 def parse_folder_name(folder_name: str) -> Dict:
@@ -244,7 +249,11 @@ def generate_markdown_table(csi300_data: List[Dict], sp500_data: List[Dict]) -> 
 
 def main():
     """Generate sensitivity analysis tables."""
-    res_dir = '/workspace/FVQ-VAE/res'
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--res-dir", default=DEFAULT_RES_DIR,
+                        help=f"Path to the results directory (default: {DEFAULT_RES_DIR})")
+    args = parser.parse_args()
+    res_dir = args.res_dir
 
     print("Collecting data...")
     csi300_data = collect_sensitivity_data(res_dir, 'csi300')

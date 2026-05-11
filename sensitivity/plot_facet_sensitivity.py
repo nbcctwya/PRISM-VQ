@@ -9,10 +9,14 @@ This layout clearly shows:
 2. Where d makes the biggest difference (interaction effect)
 """
 
+import argparse
 import os
 import re
 import csv
+from pathlib import Path
 from typing import Dict, List, Tuple
+
+DEFAULT_RES_DIR = str(Path(__file__).resolve().parent.parent / "res")
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -456,7 +460,11 @@ def plot_interaction_map(ax, data_d32, data_d64, title, xlabel, ylabel):
 
 def main():
     """Generate faceted sensitivity analysis plots for both markets."""
-    res_dir = '/workspace/FVQ-VAE/res'
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--res-dir", default=DEFAULT_RES_DIR,
+                        help=f"Path to the results directory (default: {DEFAULT_RES_DIR})")
+    args = parser.parse_args()
+    res_dir = args.res_dir
 
     for market in ['csi300', 'sp500']:
         print(f"\n{'='*60}")

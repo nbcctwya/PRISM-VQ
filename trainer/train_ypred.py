@@ -282,8 +282,8 @@ class GenerateReturn(pl.LightningModule):
         print(f"Model restored from {path}.")
 
     def load_pretrained_vqvae(self, checkpoint_path=None):
-        """Load Encoder, Quantizer, and RevIN weights from a pretrained FVQ-VAE checkpoint."""
-        print(f"Loading pretrained FVQ-VAE from {checkpoint_path}...")
+        """Load Encoder, Quantizer, and RevIN weights from a pretrained VQ-VAE checkpoint."""
+        print(f"Loading pretrained VQ-VAE from {checkpoint_path}...")
         checkpoint = torch.load(checkpoint_path, map_location="cuda")
 
         if "state_dict" in checkpoint:
@@ -317,7 +317,7 @@ class GenerateReturn(pl.LightningModule):
             param.requires_grad = False
         for param in self.revin.parameters():
             param.requires_grad = False
-        print("== FVQ-VAE weights frozen ==")
+        print("== VQ-VAE weights frozen ==")
 
         self.encoder.eval()
         self.quantizer.eval()

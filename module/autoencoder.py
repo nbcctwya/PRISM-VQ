@@ -11,9 +11,9 @@ from module.layers import SequencePredictorGRU
 from module.layers.src import RevIN
 # from module.layers.decoder import orthogonality_loss
 
-class FVQVAE(nn.Module):
+class VQVAE(nn.Module):
     def __init__(self, config):
-        super(FVQVAE, self).__init__()
+        super(VQVAE, self).__init__()
         self.config = config
 
         vqvae_cfg = config['vqvae']

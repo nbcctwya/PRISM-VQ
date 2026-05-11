@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim.lr_scheduler import CosineAnnealingLR
 import wandb
-from module.autoencoder import FVQVAE
+from module.autoencoder import VQVAE
 import pytorch_lightning as pl
 import matplotlib.pyplot as plt
 
@@ -17,7 +17,7 @@ class FactorVQVAE(pl.LightningModule):
                  ):
         super().__init__()
         self.config = config
-        self.vqvae = FVQVAE(config)
+        self.vqvae = VQVAE(config)
         self._alpha_n = config['vqvae'].get('num_features', 158)
         self.n_prior_factors = config['vqvae'].get('num_prior_factors', 13)
         self.epoch_vq_codes = []

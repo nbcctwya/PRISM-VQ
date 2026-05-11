@@ -5,14 +5,18 @@ Generates 2D contour/heatmap plots showing how RankIC varies with these hyperpar
 IEEE TKDE style optimized - cleaner and more readable than 3D plots.
 """
 
+import argparse
 import os
 import re
 import csv
+from pathlib import Path
 from typing import Dict, List, Tuple
 
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
+
+DEFAULT_RES_DIR = str(Path(__file__).resolve().parent.parent / "res")
 from scipy.interpolate import griddata
 import matplotlib
 
@@ -347,7 +351,11 @@ def plot_2d_subplot(ax, data, x_key, y_key, xlabel, ylabel, title, vmin=None, vm
 
 def main():
     """Generate 2D sensitivity analysis plots for both markets."""
-    res_dir = '/workspace/FVQ-VAE/res'
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--res-dir", default=DEFAULT_RES_DIR,
+                        help=f"Path to the results directory (default: {DEFAULT_RES_DIR})")
+    args = parser.parse_args()
+    res_dir = args.res_dir
 
     for market in ['csi300', 'sp500']:
         print(f"\n{'='*60}")

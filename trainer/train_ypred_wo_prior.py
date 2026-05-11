@@ -68,7 +68,7 @@ class GenerateReturn(pl.LightningModule):
         # RevIN
         self.revin = RevIN(self.num_features)
 
-        # Load pretrained FVQ-VAE components and freeze
+        # Load pretrained VQ-VAE components and freeze
         self.saved_model = config['predictor']['saved_model']
         self.load_pretrained_vqvae(os.path.join(get_root_dir(), 'checkpoints', f"{self.saved_model}"))
         self.freeze_vqvae()
@@ -123,7 +123,7 @@ class GenerateReturn(pl.LightningModule):
         return feature, label
 
     def forward(self, feature):
-        # Stage 1: FVQ-VAE
+        # Stage 1: VQ-VAE
         feature_normalized = self.revin(feature, mode="norm")
         h_batch = self.encoder(feature_normalized)
         z_q, _, _ = self.quantizer(h_batch)
@@ -197,7 +197,7 @@ class GenerateReturn(pl.LightningModule):
             self.log('val_loss_epoch', val_loss_epoch, on_step=False, on_epoch=True, logger=True, sync_dist=True)
 
     def load_pretrained_vqvae(self, checkpoint_path=None):
-        print(f"Loading pretrained FVQ-VAE from {checkpoint_path}...")
+        print(f"Loading pretrained VQ-VAE from {checkpoint_path}...")
         checkpoint = torch.load(checkpoint_path, map_location="cuda")
         state_dict = checkpoint["state_dict"] if "state_dict" in checkpoint else checkpoint
         revin_state_dict = {}
@@ -214,14 +214,14 @@ class GenerateReturn(pl.LightningModule):
         self.encoder.load_state_dict(encoder_state_dict, strict=True)
         self.quantizer.load_state_dict(quantizer_state_dict, strict=True)
         self.revin.load_state_dict(revin_state_dict, strict=True)
-        print("FVQ-VAE components loaded.")
+        print("VQ-VAE components loaded.")
 
     def freeze_vqvae(self):
         for m in [self.encoder, self.quantizer, self.revin]:
             for p in m.parameters():
                 p.requires_grad = False
             m.eval()
-        print("== FVQ-VAE weights frozen ==")
+        print("== VQ-VAE weights frozen ==")
 
 
 class ReturnPredictor(nn.Module):

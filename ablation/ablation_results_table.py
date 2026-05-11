@@ -5,11 +5,16 @@ Compares: Full Model vs w/o MoE vs w/o Prior vs w/o Codebook vs Autoregressive
 Creates both LaTeX and Markdown formats.
 """
 
+import argparse
 import os
 import re
 import csv
-import numpy as np
+from pathlib import Path
 from typing import Dict, List, Tuple
+
+import numpy as np
+
+DEFAULT_RES_DIR = str(Path(__file__).resolve().parent.parent / "res")
 
 
 def read_rank_ic(metric_file: str) -> float:
@@ -295,7 +300,11 @@ def generate_markdown_table(results: Dict) -> str:
 
 def main():
     """Generate ablation study tables."""
-    res_dir = '/workspace/FVQ-VAE/res'
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--res-dir", default=DEFAULT_RES_DIR,
+                        help=f"Path to the results directory (default: {DEFAULT_RES_DIR})")
+    args = parser.parse_args()
+    res_dir = args.res_dir
 
     results = {
         'csi300': {},

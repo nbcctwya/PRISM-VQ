@@ -7,14 +7,11 @@ from module.layers.src import RevIN
 from einops import rearrange
 
 class SimpleMLP(nn.Module):
-    """
-    간단한 MLP Expert 클래스
-    DLinear 대신 사용할 Feed-Forward Network
-    """
+    """Simple MLP expert used as a feed-forward alternative to DLinear."""
     def __init__(self, input_dim, hidden_dim=None, output_dim=None):
         super().__init__()
         if hidden_dim is None:
-            hidden_dim = input_dim * 2  # 좀 더 큰 hidden_dim 사용
+            hidden_dim = input_dim * 2
         if output_dim is None:
             output_dim = input_dim
             
@@ -111,14 +108,12 @@ class SparseDispatcher(object):
         Returns:
           a `Tensor` with shape `[batch_size, <extra_output_dims>]`.
         """
-        # 빈 텐서가 아닌 것들만 필터링
         non_empty_expert_out = [out for out in expert_out if out.numel() > 0]
-        
+
         if len(non_empty_expert_out) == 0:
-            # 모든 expert 출력이 빈 경우 - 예상 출력 형태로 빈 텐서 반환
+            # All expert outputs are empty: return zeros with the expected shape.
             batch_size = self._gates.size(0)
-            # expert_out[0]의 형태를 참조하여 올바른 출력 차원 생성
-            output_dim = expert_out[0].size(-1) if len(expert_out) > 0 and expert_out[0].dim() > 0 else 64  # default d_model
+            output_dim = expert_out[0].size(-1) if len(expert_out) > 0 and expert_out[0].dim() > 0 else 64
             return torch.zeros(batch_size, output_dim, device=self._gates.device, requires_grad=True)
         
         # apply exp to expert outputs, so we are not longer in log space
@@ -177,7 +172,6 @@ class FactorGatedMoE(nn.Module):
 
         self.W_h = nn.Parameter(torch.eye(self.num_experts))
 
-        # 간단한 router 생성 (DLinear config 불필요)
         self.gate = nn.Sequential(
             nn.Linear(gate_input_size, hidden_size),
             nn.GELU(),

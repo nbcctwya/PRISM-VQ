@@ -37,9 +37,9 @@ data:
   data_path: 'dataset/data'
   window_size: 20
   step: 1
-  train_period : ["2009-01-01", "2019-12-31"] # 10년 
-  valid_period : ["2020-01-01", "2021-12-31"] # 2년
-  test_period  : ["2022-01-01", "2024-12-31"] # 3년
+  train_period : ["2009-01-01", "2019-12-31"]  # 10 years
+  valid_period : ["2020-01-01", "2021-12-31"]  # 2 years
+  test_period  : ["2022-01-01", "2024-12-31"]  # 3 years
 
 #sp500: sp500_h128_VQK512_C128_emb128_dl2p10_s42-epoch=28-val_loss=0.7354.ckpt
 predictor: #csi300 : "csi300_h128_VQK512_C128_emb128_dl2p10_s42-epoch=8-val_loss=0.5882.ckpt"
@@ -62,6 +62,7 @@ predictor: #csi300 : "csi300_h128_VQK512_C128_emb128_dl2p10_s42-epoch=8-val_loss
     dim_feedforward: 128
     dropout: 0.1 
     batch_first: True
+    prepend_structure_token: True
  
   rank : 0
   target_day: 5
@@ -88,4 +89,3 @@ train:
     patience: 15
     verbose: True
     mode: "min"
-

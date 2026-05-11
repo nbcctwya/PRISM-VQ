@@ -193,10 +193,7 @@ class RotaryTransformerEncoder(nn.Module):
 
 
 class TemporalTransformerEncoder(nn.Module):
-    """
-    CLS 토큰 + RoPE positional encoding
-    (다른 PE는 더 이상 지원하지 않음)
-    """
+    """CLS / structure token with RoPE positional encoding (other PEs are no longer supported)."""
     def __init__(self, config_predictor):
         super().__init__()
         self.max_len = config_predictor['pred_len']+1
@@ -208,8 +205,11 @@ class TemporalTransformerEncoder(nn.Module):
         self.num_layers = config_predictor['transformer']['num_layers']
         self.z_q_dim = config_predictor['vq_embed_dim']
         self.num_features = config_predictor['num_features']
-        # 시퀀스 전체 반환 여부
         self.return_sequence = config_predictor['transformer'].get('return_sequence', True)
+        # If False (Stage 2 ablation), skip prepending z_q and use only a learnable CLS token.
+        self.prepend_structure_token = config_predictor['transformer'].get(
+            'prepend_structure_token', True
+        )
 
         self.rotary_pe = RotaryPE(self.d_model, self.max_len)
 
@@ -223,30 +223,35 @@ class TemporalTransformerEncoder(nn.Module):
         )
 
         self.z_q_proj = nn.Linear(self.z_q_dim, self.d_model)
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, self.d_model))
+        nn.init.normal_(self.cls_token, mean=0.0, std=0.02)
         self.normalization = nn.LayerNorm(self.d_model)
         self.transformer = RotaryTransformerEncoder(layer, num_layers=self.num_layers)
         
-        # Input projection layer - 입력 차원을 d_model에 맞춤
+        # Project input features to d_model.
         self.input_proj = nn.Linear(self.num_features, self.d_model)
 
     def forward(self, x, z_q):                     # x: (B,T,D)
         B, T, D = x.shape
-        
-        # 입력 차원이 d_model과 일치하지 않으면 projection으로 변환
+
         if D != self.d_model:
             x = self.input_proj(x)  # (B, T, D) -> (B, T, d_model)
-            D = self.d_model  # 차원 업데이트
+            D = self.d_model
 
-        # 1) z_q를 전체 시퀀스에 더하기 (CLS 대신 additive fusion)
-        if z_q.shape[1] != D:
-            z_q = self.z_q_proj(z_q)
-        # z_q를 CLS 토큰처럼 시퀀스 맨 앞에 추가
-        x = torch.cat((z_q.unsqueeze(1), x), dim=1)  # (B, 1+T, D)
-        # x = self.normalization(x) 
+        if self.prepend_structure_token:
+            # Default path: prepend z_q to the sequence (acts as a CLS token).
+            if z_q.shape[1] != D:
+                z_q = self.z_q_proj(z_q)
+            z_q = z_q.to(device=x.device, dtype=x.dtype)
+            x = torch.cat((z_q.unsqueeze(1), x), dim=1)  # (B, 1+T, D)
+        else:
+            # Ablation: use only a learnable CLS token, no structure token.
+            cls_token = self.cls_token.to(device=x.device, dtype=x.dtype).expand(B, -1, -1)
+            x = torch.cat((cls_token, x), dim=1)  # (B, 1+T, D)
 
-        # 2) Positional Encoding (RoPE handled inside attention)
-        out = self.transformer(x)           # (B,T+1,D)
-        
-        # 3) CLS 토큰만 반환 (시계열 대표값)
-        return out[:, 0]                   # (B,D)
+        # Positional encoding (RoPE) is applied inside attention.
+        out = self.transformer(x)           # (B, T+1, D)
+
+        # Return only the CLS token as the sequence summary.
+        return out[:, 0]                    # (B, D)
     

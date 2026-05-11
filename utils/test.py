@@ -67,10 +67,9 @@ def run_inference(model, data_loader, config, device='cuda'):
     preds = []
     reals = []
 
-    # validation step과 동일한 방식으로 배치별 IC 계산
+    # Per-batch IC (mirrors validation_step).
     batch_ics = []
     batch_rics = []
-    # ! BUGFIX: index level exchange
     test_index = data_loader.dataset.get_index()
     test_index_sorted = test_index.sortlevel(0)[0]
     
@@ -84,15 +83,12 @@ def run_inference(model, data_loader, config, device='cuda'):
         future_returns = batch[:, -1, n_features+n_prior_factors: ] # (300, 10)
         label = future_returns[:, target_index] # (300, 1)
 
-        # wo_prior 버전에서는 prior_factor를 사용하지 않음
+        # wo_prior ablation drops prior_factor.
         if hasattr(model, 'num_prior_factors') and hasattr(model, 'return_predictor') and not model.return_predictor.use_prior:
-            # wo_prior 모델인 경우 feature만 전달
             y_pred, aux_loss = model(feature)
         else:
-            # 일반 모델인 경우 기존 방식 사용
             y_pred, beta_p, beta_l, z_q, _ = model(feature, prior_factor)
 
-        # 배치별 IC 계산 (validation step과 동일한 방식)
         daily_ic, daily_ric = calc_ic(y_pred.cpu().detach().numpy(), label.cpu().detach().numpy())
         batch_ics.append(daily_ic)
         batch_rics.append(daily_ric)
@@ -100,11 +96,10 @@ def run_inference(model, data_loader, config, device='cuda'):
         preds.append(y_pred.cpu().detach().numpy())
         reals.append(label.cpu().detach().numpy())
 
-    # 배치별 IC의 평균 (validation step과 동일한 방식)
     batch_avg_ic = np.mean(batch_ics)
     batch_avg_ric = np.mean(batch_rics)
-    print(f"배치별 평균 IC: {batch_avg_ic:.4f}")
-    print(f"배치별 평균 RIC: {batch_avg_ric:.4f}")
+    print(f"Per-batch mean IC: {batch_avg_ic:.4f}")
+    print(f"Per-batch mean RIC: {batch_avg_ric:.4f}")
 
 
     preds_s = pd.Series(np.concatenate(preds, axis=0).squeeze(), index=test_index_sorted)
@@ -112,8 +107,8 @@ def run_inference(model, data_loader, config, device='cuda'):
     df = pd.DataFrame({'score': preds_s, 'label': reals_s})
 
     rankic = RankIC(df.dropna(), column1='label', column2='score')
-    print(f"날짜별 RankIC\n{rankic}")
+    print(f"Per-date RankIC\n{rankic}")
     icir = Cal_IC_IR(df, column1='label', column2='score')
-    print(f"날짜별 Metrics\n{icir}")
+    print(f"Per-date metrics\n{icir}")
 
     return df, rankic, icir

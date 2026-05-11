@@ -46,10 +46,10 @@ class ResBlock(nn.Module):
 
 class HyperFusion(nn.Module):
     """
-    (h, z) → α, β_prior, β_latent (개선된 버전)
-    - h로부터 동적 기저(base) β를 생성
-    - z 기반 MoE의 출력으로 기저 β를 FiLM 방식으로 조절 (γ, δ)
-    - α는 MoE 출력을 기반으로 예측
+    (h, z) -> alpha, beta_prior, beta_latent.
+    - Generates a dynamic base beta from h.
+    - Modulates that base via FiLM (gamma, delta) using the z-conditioned MoE output.
+    - Predicts alpha from the MoE output.
     """
     def __init__(self,
                  d_h: int,
@@ -59,67 +59,60 @@ class HyperFusion(nn.Module):
                  drop: float = 0.2,
                  num_experts: int = 4,
                  moe_k: int = 1,
-                 hidden_size: int = 64): # moe_hidden은 작은 값(32 or 64) 유지
+                 hidden_size: int = 64):
         super().__init__()
-        
-        # 1. 입력 프로젝션 (이전과 동일)
+
+        # 1. Input projection
         input_dim = d_h + d_z
         self.input_proj = nn.Sequential(
-            nn.Linear(input_dim, d_h), # hidden_dim -> d_h로 통일
+            nn.Linear(input_dim, d_h),
             ResBlock(dim=d_h, hidden=d_h * 2, drop=drop),
             nn.Linear(d_h, d_h)
         )
 
         self.norm_h = nn.LayerNorm(d_h)
         self.norm_z = nn.LayerNorm(d_z)
-        
+
         # 2. MoE
         self.moe = FactorGatedMoE(
             gate_input_size=d_z,
             expert_input_size=d_h,
-            hidden_size=hidden_size, # MoE 내부 전문가의 hidden size
+            hidden_size=hidden_size,
             num_experts=num_experts,
             k=moe_k
         )
 
-        # 3. 동적 기저(Base) 생성 헤드 (h로부터 생성)
-        # h의 시간적 정보가 전체적인 트렌드/기저를 형성
+        # 3. Base beta heads (from h)
         self.base_beta_prior_head = nn.Linear(d_h, k_prior)
         self.base_beta_latent_head = nn.Linear(d_h, k_latent)
-        
-        # 4. FiLM 파라미터(γ, δ) 생성 헤드 (MoE 출력으로부터 생성)
-        # MoE의 공간 전문성이 기저를 어떻게 조절할지 결정
+
+        # 4. FiLM (gamma, delta) heads (from MoE output)
         self.film_prior_head = nn.Linear(hidden_size, k_prior * 2)
         self.film_latent_head = nn.Linear(hidden_size, k_latent * 2)
 
-        # 5. Alpha 예측 헤드
+        # 5. Alpha head
         self.alpha_head = nn.Linear(hidden_size, 1)
 
     def forward(self, h, z):
-
         h_norm = self.norm_h(h)
         z_norm = self.norm_z(z)
 
         x_fused = torch.cat([h_norm, z_norm], dim=-1)
         x_proj = self.input_proj(x_fused)
         moe_out, moe_loss = self.moe(x=x_proj, z=z_norm)
-        
-        # 2. h로부터 동적 기저 베타 생성
+
         base_beta_p = self.base_beta_prior_head(h)
         base_beta_l = self.base_beta_latent_head(h)
 
-        # 3. MoE 출력으로 FiLM 파라미터(gamma, delta) 생성 및 분리
         gamma_p, delta_p = self.film_prior_head(moe_out).chunk(2, dim=-1)
         gamma_l, delta_l = self.film_latent_head(moe_out).chunk(2, dim=-1)
 
-        # 4. FiLM을 이용해 최종 베타 계산: y = γ * x + δ
+        # FiLM: y = gamma * x + delta
         beta_p = (gamma_p * base_beta_p) + delta_p
         beta_l = (gamma_l * base_beta_l) + delta_l
-        
-        # 5. Alpha 생성
+
         alpha = self.alpha_head(moe_out).squeeze(-1)
 
-        # 베타 규제 loss는 여기서도 계산하여 반환
         beta_reg_loss = (torch.norm(beta_p, p=2) + torch.norm(beta_l, p=2))
-        
+
         return alpha, beta_p, beta_l, moe_loss + beta_reg_loss

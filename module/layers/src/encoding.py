@@ -9,7 +9,7 @@ from typing import Optional
 # 1. Positional Encoding Modules
 # ----------------------------------
 class SinusoidalPE(nn.Module):
-    """고정 사인/코사인 PE"""
+    """Fixed sinusoidal positional encoding."""
     def __init__(self, d_model, max_len=512):
         super().__init__()
         self.d_model = d_model
@@ -31,7 +31,7 @@ class SinusoidalPE(nn.Module):
         return x + self.pe[:, :seq_len]
 
 class LearnableAbsPE(nn.Module):
-    """학습형 절대 PE"""
+    """Learnable absolute positional encoding."""
     def __init__(self, d_model, max_len=512):
         super().__init__()
         self.pe = nn.Parameter(torch.randn(1, max_len, d_model))
@@ -41,7 +41,7 @@ class LearnableAbsPE(nn.Module):
         return x + self.pe[:, :seq_len]
 
 class RelativePE(nn.Module):
-    """Shaw 2018 상대 PE (메모리 T²)"""
+    """Shaw et al. 2018 relative positional encoding (T^2 memory)."""
     def __init__(self, d_model, max_len=512):
         super().__init__()
         self.d_model = d_model
@@ -259,7 +259,7 @@ class TemporalPE(nn.Module):
         return x_geo + self.semantic_weight * semantic_encoding
 
 class AdaptiveTemporalPE(nn.Module):
-    """Adaptive Temporal PE - 새로운 혁신적 방법!"""
+    """Adaptive temporal positional encoding."""
     def __init__(self, d_model, max_len=512, adaptation_rate=0.1):
         super().__init__()
         self.d_model = d_model

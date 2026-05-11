@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-# PyTorch를 import 하기 전에 환경 변수를 설정합니다.
+# Set env vars before importing PyTorch.
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 
 import copy
@@ -31,7 +31,7 @@ from utils.wandb import make_wandb_config
 
 torch.set_float32_matmul_precision('high')
 
-# OmegaConf resolver 등록 - n_expert의 절반을 계산하는 함수
+# OmegaConf resolver for computing half of n_expert
 OmegaConf.register_new_resolver("half", lambda x: int(x) // 2)
 
 _SNAPSHOT_ENV_KEY = "STAGE2_WO_PRIOR_CONFIG_SNAPSHOT_DIR"
@@ -127,7 +127,6 @@ def _build_run_name(cfg: DictConfig) -> str:
 def _build_wandb_logger(cfg: DictConfig, run_name: str) -> WandbLogger:
     project_name = f"{cfg.train.project_name}_{cfg.data.universe}_stage2_wo_prior"
 
-    # config는 나중에 수동으로 업데이트할 거임
     logger_cfg = {
         "_target_": "pytorch_lightning.loggers.wandb.WandbLogger",
         "project": project_name,
@@ -141,13 +140,12 @@ def _build_wandb_logger(cfg: DictConfig, run_name: str) -> WandbLogger:
     logger_cfg = {k: v for k, v in logger_cfg.items() if v is not None}
     logger = instantiate(logger_cfg)
 
-    # wandb가 초기화된 후에 config 업데이트
     try:
         clean_config = make_wandb_config(cfg)
         if hasattr(logger, 'experiment') and clean_config:
             logger.experiment.config.update(clean_config)
     except Exception:
-        pass  # config 업데이트 실패해도 상관없음
+        pass
 
     return logger
 
@@ -294,15 +292,14 @@ def train(cfg: DictConfig,
     best_model.eval()
 
     with torch.no_grad():
-        print("========== Validation 데이터 평가 시작 ==========")
+        print("========== Validation evaluation ==========")
         _, _, val_metric = run_inference(best_model, valid_loader, model_config)
         print(f"Validation RIC: {val_metric['RankIC']:.4f}")
 
-        print("========== Test 데이터 평가 시작 ==========")
+        print("========== Test evaluation ==========")
         pred_df, _, metric = run_inference(best_model, test_loader, model_config)
         print(f"Test RIC: {metric['RankIC']:.4f}")
 
-    # wo_prior 폴더 생성 및 저장
     save_run_name = '_'.join(run_name.split('_')[1:])
     run_dir = Path(get_root_dir()) / cfg.train.save_res / 'wo_prior' / save_run_name
     run_dir.mkdir(parents=True, exist_ok=True)

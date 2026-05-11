@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 
 # ---------------------------------------------------------------------------
-# 0. 1-D PixelShuffle (채널 → 길이 r배)
+# 0. 1-D PixelShuffle (channels -> length, factor r)
 # ---------------------------------------------------------------------------
 class PixelShuffle1D(nn.Module):
     def __init__(self, upscale_factor: int):
@@ -44,13 +44,13 @@ class OrthogonalProjector(nn.Module):
         proj_coef = (z_q * z_p_proj).sum(-1, keepdim=True) / (
             z_p_proj.pow(2).sum(-1, keepdim=True).clamp(min=1e-8)
         )
-        z_q_orth = z_q - proj_coef * z_p_proj                # 직교 성분
+        z_q_orth = z_q - proj_coef * z_p_proj                # orthogonal component
         hat_z_q = F.layer_norm(z_q_orth, z_q_orth.shape[-1:])
         hat_z_p = F.layer_norm(z_p_proj,  z_p_proj.shape[-1:])
         return hat_z_q, hat_z_p
 
 # ---------------------------------------------------------------------------
-# 2. FiLM 게이팅 (condition → γ,β 생성)
+# 2. FiLM gating (condition -> gamma, beta)
 # ---------------------------------------------------------------------------
 class FiLM1D(nn.Module):
     def __init__(self, cond_dim: int, n_channels: int, hidden: int | None = None):
@@ -66,7 +66,7 @@ class FiLM1D(nn.Module):
         x    : (N, C, T)
         cond : (N, cond_dim)
         """
-        # cond 가 2-D 가 아니면 마지막 dim 만 남기고 평균
+        # If cond is >2D, average all but the last dim.
         if cond.dim() > 2:
             dims = tuple(range(1, cond.dim() - 1))
             cond = cond.mean(dim=dims)
@@ -81,7 +81,7 @@ class FiLM1D(nn.Module):
 
 
 # ---------------------------------------------------------------------------
-# 3. Simplified Decoder (정규화 추가, OrthogonalProjector 제거)
+# 3. Simplified Decoder
 # ---------------------------------------------------------------------------
 class ReconstructionDecoder(nn.Module):
     """
@@ -89,22 +89,22 @@ class ReconstructionDecoder(nn.Module):
     z_q is used directly, z_prior conditions via FiLM.
     """
     def __init__(self,
-                 latent_dim: int,       # z_q의 차원
-                 prior_factor_dim: int, # z_prior의 차원 (FiLM 컨디셔닝용)
+                 latent_dim: int,       # z_q dim
+                 prior_factor_dim: int, # z_prior dim (used for FiLM conditioning)
                  output_T: int,
                  output_C: int = 158,
                  hidden_channels: int = 128,
                  initial_T: int = 5,
                  num_blocks: int | None = None,
                  norm_type: str = 'none',  # 'batch', 'group', 'layer', 'instance'
-                 num_groups: int = 8):      # GroupNorm용 그룹 수
+                 num_groups: int = 8):     # number of groups for GroupNorm
         super().__init__()
 
-        # ── 0. T 계산 ──
+        # 0. T resolution check
         if num_blocks is None:
             ratio = output_T / initial_T
             if not (ratio.is_integer() and math.log2(ratio).is_integer()):
-                raise ValueError("initial_T x 2^k = output_T 가 되어야 합니다.")
+                raise ValueError("initial_T * 2^k must equal output_T.")
             num_blocks = int(math.log2(ratio))
         if initial_T * (2 ** num_blocks) != output_T:
             raise ValueError("T mismatch: initial_T * (2^num_blocks) must equal output_T.")
@@ -115,23 +115,22 @@ class ReconstructionDecoder(nn.Module):
         self.norm_type = norm_type.lower()
         self.num_groups = num_groups
 
-        # 정규화 타입 검증
         valid_norms = ['batch', 'group', 'layer', 'instance', 'none']
         if self.norm_type not in valid_norms:
             raise ValueError(f"norm_type must be one of {valid_norms}, got {norm_type}")
 
-        # ── 1. Base embed (z_q 직접 사용) ──
+        # 1. Base embed (uses z_q directly)
         self.fc_in = nn.Sequential(
             nn.Linear(latent_dim, hidden_channels * initial_T),
             nn.GELU()
         )
 
-        # ── 2. Upsample stack (정규화 레이어 추가) ──
+        # 2. Upsample stack
         self.conv_expand_layers = nn.ModuleList()
-        self.norm_expand_layers = nn.ModuleList()  # expand 후 정규화
+        self.norm_expand_layers = nn.ModuleList()
         self.shuffle_layers     = nn.ModuleList()
         self.conv_rest_layers   = nn.ModuleList()
-        self.norm_rest_layers   = nn.ModuleList()  # rest 후 정규화
+        self.norm_rest_layers   = nn.ModuleList()
         self.film_layers        = nn.ModuleList()
         self.skip_layers        = nn.ModuleList()
 
@@ -160,20 +159,16 @@ class ReconstructionDecoder(nn.Module):
                                    kernel_size=4, stride=2, padding=1)
             )
 
-        # ── 3. Output projection ──
+        # 3. Output projection
         self.conv_out = nn.Conv1d(hidden_channels, output_C, kernel_size=1)
-        
-        # # z_prior 정규화 (한 번만 적용) -> autoencoder에서 이미 정규화 해줌.
-        # self.z_prior_norm = nn.LayerNorm(prior_factor_dim)
 
     def _make_norm_layer(self, num_channels: int) -> nn.Module:
-        """정규화 레이어 생성 헬퍼 함수"""
+        """Build the configured normalization layer for `num_channels` channels."""
         if self.norm_type == 'batch':
             return nn.BatchNorm1d(num_channels)
         elif self.norm_type == 'group':
-            # 그룹 수가 채널 수보다 크면 채널 수로 조정
+            # Clamp group count if it exceeds channel count, then make it divide channels.
             groups = min(self.num_groups, num_channels)
-            # 채널 수가 그룹 수로 나누어떨어지지 않으면 조정
             while num_channels % groups != 0 and groups > 1:
                 groups -= 1
             return nn.GroupNorm(groups, num_channels)
@@ -237,17 +232,17 @@ class SequencePredictorGRU(nn.Module):
         self.num_gru_layers = num_gru_layers
         self.output_dim = output_dim
 
-        # 1. Initial hidden state generator (더 강력한 MLP)
+        # 1. Initial hidden state generator
         self.init_mlp = nn.Sequential(
             nn.Linear(latent_dim + prior_factor_dim, hidden_dim * 2),
             nn.LayerNorm(hidden_dim * 2),
             nn.GELU(),
             nn.Dropout(dropout),
             nn.Linear(hidden_dim * 2, hidden_dim * num_gru_layers),
-            nn.Tanh()  # hidden state는 tanh로 제한
+            nn.Tanh()  # bound hidden state via tanh
         )
 
-        # 2. Multi-layer GRU (더 효율적)
+        # 2. Multi-layer GRU
         self.gru = nn.GRU(
             input_size=output_dim,
             hidden_size=hidden_dim,
@@ -265,54 +260,44 @@ class SequencePredictorGRU(nn.Module):
             nn.Linear(hidden_dim // 2, output_dim)
         )
         
-        # 4. Learnable start token (zeros 대신)
+        # 4. Learnable start token
         self.start_token = nn.Parameter(torch.randn(1, 1, output_dim) * 0.1)
 
     def forward(self, z_q, f_prior):
         """
-        더 효율적인 forward pass
-        z_q: (N, latent_dim) - Quantized latent vectors
-        f_prior: (N, prior_factor_dim) - Prior factors
+        z_q: (N, latent_dim) - quantized latent vectors
+        f_prior: (N, prior_factor_dim) - prior factors
         """
         N = z_q.shape[0]
 
-        # 1. Generate initial hidden state
-        combined_input = torch.cat((z_q, f_prior), dim=1)  # (N, latent_dim + prior_factor_dim)
-        h_0 = self.init_mlp(combined_input)  # (N, hidden_dim * num_layers)
-        h_0 = h_0.view(N, self.num_gru_layers, self.hidden_dim).transpose(0, 1).contiguous()  # (num_layers, N, hidden_dim)
+        combined_input = torch.cat((z_q, f_prior), dim=1)
+        h_0 = self.init_mlp(combined_input)
+        h_0 = h_0.view(N, self.num_gru_layers, self.hidden_dim).transpose(0, 1).contiguous()
 
-        # 2. Prepare input sequence with learnable start token
-        start_tokens = self.start_token.expand(N, 1, self.output_dim)  # (N, 1, output_dim)
-        
+        start_tokens = self.start_token.expand(N, 1, self.output_dim)
+
         outputs = []
         hidden = h_0
         current_input = start_tokens
-        
-        # 3. Autoregressive generation (더 효율적인 루프)
-        for step in range(self.output_seq_len):
-            # GRU forward pass
-            gru_out, hidden = self.gru(current_input, hidden)  # gru_out: (N, 1, hidden_dim)
-            
-            # Output projection
-            output_step = self.output_mlp(gru_out.squeeze(1))  # (N, output_dim)
-            outputs.append(output_step)
-            
-            # Next input (teacher forcing 없이 autoregressive)
-            current_input = output_step.unsqueeze(1)  # (N, 1, output_dim)
 
-        # 4. Stack all outputs
+        # Autoregressive generation (no teacher forcing).
+        for step in range(self.output_seq_len):
+            gru_out, hidden = self.gru(current_input, hidden)
+            output_step = self.output_mlp(gru_out.squeeze(1))
+            outputs.append(output_step)
+            current_input = output_step.unsqueeze(1)
+
         predictions = torch.stack(outputs, dim=1)  # (N, output_seq_len, output_dim)
-        
-        # output_dim이 1이면 squeeze하여 (N, output_seq_len) 반환
+
         if self.output_dim == 1:
             predictions = predictions.squeeze(-1)
-            
+
         return predictions
 
     def forward_with_teacher_forcing(self, z_q, f_prior, target_sequence=None):
         """
-        Teacher forcing을 사용한 훈련용 forward pass (더 빠름)
-        target_sequence: (N, output_seq_len, output_dim) or (N, output_seq_len) if output_dim=1
+        Training forward pass with teacher forcing.
+        target_sequence: (N, output_seq_len, output_dim) or (N, output_seq_len) if output_dim==1.
         """
         if target_sequence is None:
             return self.forward(z_q, f_prior)

@@ -14,8 +14,8 @@ def corr_cluster_order(returns, method='average', eps=1e-6, min_periods=10):
     # if (~keep).any():
     #     print(f"[info] drop {(~keep).sum()} zero‑variance stocks")
 
-    df_kept = df.loc[keep]                              # <- (B',T)
-    # *** 여기서 노이즈 shape = df_kept.shape 로 맞춰야 함 ***
+    df_kept = df.loc[keep]                              # (B', T)
+    # Noise shape must match df_kept (after filtering).
     df_kept += np.random.normal(0, eps, df_kept.shape)
 
     corr = df_kept.T.corr(min_periods=min_periods).to_numpy()

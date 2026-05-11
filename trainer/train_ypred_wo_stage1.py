@@ -41,24 +41,22 @@ class GenerateReturn(pl.LightningModule):
 
         vqvae_cfg = config['vqvae']
 
-        # VQVAE 파라미터 (코드북 없이 transformer만 사용)
+        # VQVAE config (transformer-only; no codebook in this ablation)
         self.num_prior_factors = vqvae_cfg['num_prior_factors']
         self.num_features  = vqvae_cfg['num_features']
         self.vq_embed_dim  = vqvae_cfg['vq_embed_dim']  # latent dimension
         self.seq_len       = vqvae_cfg['seq_len']
         self.aux_imp       = config['predictor']['aux_imp']
 
-        # Stage1 (VQ-VAE) 제거: Encoder, Quantizer, RevIN 모두 제거
-        # 대신 raw feature를 직접 사용
-
-        # Feature projection: num_features -> vq_embed_dim
+        # Stage 1 (VQ-VAE) removed: no Encoder, Quantizer, or RevIN.
+        # Raw features are projected directly.
         self.feature_projection = nn.Linear(self.num_features, self.vq_embed_dim)
 
         # Factor Loading Generator
         self.z_prior_norm = nn.LayerNorm(self.num_prior_factors)
         self.loadings = LoadingGenerator(config)
 
-        # LatentValueHead: feature에서 직접 latent를 생성
+        # LatentValueHead: derive latent directly from features
         self.latent_value_head = LatentValueHead(
             d_latent=self.vq_embed_dim,
             K = self.vq_embed_dim
@@ -115,21 +113,16 @@ class GenerateReturn(pl.LightningModule):
         return feature, prior_factor, label
 
     def forward(self, feature, prior_factor):
-        # Stage1 제거: VQ-VAE 없이 직접 feature 사용
-        # feature shape: (B, T, C)
-
-        # feature를 평탄화하여 latent representation 생성
-        # 여기서는 평균 풀링 사용
+        # Stage 1 removed: use raw features (B, T, C) directly via mean pooling.
         z_q = feature.mean(dim=1)  # (B, C)
         z_q = self.feature_projection(z_q)  # (B, vq_embed_dim)
 
-        # Stage2: Loading Generator
+        # Stage 2: Loading Generator
         alpha, beta_p, beta_l, loss_imp = self.loadings(feature, z_q)
         prior_factor_normed = self.z_prior_norm(prior_factor)
 
         f_latent = self.latent_value_head(z_q)
 
-        # 예측
         y_pred = self.return_predictor(
             alpha    = alpha,
             beta_p   = beta_p,

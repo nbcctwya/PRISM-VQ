@@ -11,9 +11,7 @@ from module.layers.fusion import HyperFusion
 from module.layers.src import RevIN
 
 class LoadingGenerator(nn.Module):
-    """
-    DLinear → Projection → TemporalTransformer → HyperFusion 파이프라인
-    """
+    """DLinear -> Projection -> TemporalTransformer -> HyperFusion pipeline."""
     def __init__(self, config):
         super().__init__()
         self.config = config
@@ -43,9 +41,6 @@ class LoadingGenerator(nn.Module):
             #nn.Dropout(self.config['predictor']['dropout']),
         )
         
-        ## VQ embedding projection 추가 (차원 불일치 해결)
-        ## self.vq_proj = nn.Linear(self.vq_embed_dim, self.d_model) if self.vq_embed_dim != self.d_model else nn.Identity()
-
         # 1. Temporal Transformer
         self.temporal_transformer = TemporalTransformerEncoder(predictor_cfg)
        

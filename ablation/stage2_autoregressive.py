@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-# PyTorch를 import 하기 전에 환경 변수를 설정합니다.
+# Set env vars before importing PyTorch.
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 
 import copy
@@ -31,7 +31,7 @@ from utils.wandb import make_wandb_config
 
 torch.set_float32_matmul_precision('high')
 
-# OmegaConf resolver 등록
+# OmegaConf resolver for computing half of n_expert
 OmegaConf.register_new_resolver("half", lambda x: int(x) // 2)
 
 _SNAPSHOT_ENV_KEY = "STAGE2_AR_CONFIG_SNAPSHOT_DIR"
@@ -292,11 +292,11 @@ def train(cfg: DictConfig,
     best_model.eval()
 
     with torch.no_grad():
-        print("========== Validation 데이터 평가 시작 ==========")
+        print("========== Validation evaluation ==========")
         _, _, val_metric = run_inference(best_model, valid_loader, model_config)
         print(f"Validation RIC: {val_metric['RankIC']:.4f}")
 
-        print("========== Test 데이터 평가 시작 ==========")
+        print("========== Test evaluation ==========")
         pred_df, _, metric = run_inference(best_model, test_loader, model_config)
         print(f"Test RIC: {metric['RankIC']:.4f}")
 

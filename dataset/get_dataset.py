@@ -24,13 +24,12 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Sampler
 from qlib.data.dataset.utils import get_level_index
 
-# 현재 작업 디렉토리 추가
 sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 PROJECT_ROOT = Path(__file__).absolute().resolve().parent.parent.parent
 sys.path.append(str(PROJECT_ROOT))
 
-# 직접 함수 정의
+
 def get_root_dir():
     return Path(__file__).parent.parent
 
@@ -46,22 +45,22 @@ def load_yaml_param_settings(yaml_fname: str):
 
 class GlobalFactorMerger(Processor):
     """
-    (datetime, instrument) 멀티인덱스 DataFrame에
-    factor_mat(행: datetime, 열: factor) 을 열단위로 브로드캐스트하여 추가.
+    Append `factor_mat` (rows: datetime, columns: factor) to a
+    (datetime, instrument) MultiIndex DataFrame by broadcasting along instruments.
     """
 
     def __init__(self, factor_mat: pd.DataFrame, fields_group: str = "prior"):
         self.factor_mat = factor_mat
-        self.fg = fields_group  # 새 fields_group 이름
+        self.fg = fields_group
 
     def __call__(self, df: pd.DataFrame):
-        # -------------- ① 브로드캐스트 --------------
+        # 1. Broadcast factor rows across instruments per datetime.
         dt_index = df.index.get_level_values("datetime")
         fac_block = self.factor_mat.loc[dt_index].values
         repeat = int(len(df) / len(dt_index))
         fac_block = np.repeat(fac_block, repeat, axis=0)
 
-        # -------------- ② DataFrame + Multi-Index --------------
+        # 2. Wrap with the target MultiIndex columns.
         fac_df = pd.DataFrame(
             fac_block,
             index=df.index,
@@ -69,7 +68,6 @@ class GlobalFactorMerger(Processor):
                 [(self.fg, c) for c in self.factor_mat.columns]
             ),
         )
-        # -------------- ③ concat & return --------------
         return pd.concat([df, fac_df], axis=1)
 
 
@@ -178,10 +176,10 @@ if __name__ == "__main__":
 
     dataframe = handler.fetch(col_set="__all", data_key=DataHandlerLP.DK_L)
     df_I = handler.fetch(col_set="__all", data_key=DataHandlerLP.DK_I)
-    print("=== 디버깅: dataframe 인덱스 확인 ===")
-    print(f"dataframe 인덱스 이름들: {dataframe.index.names}")
-    print(f"dataframe 인덱스 샘플: {dataframe.index[:5]}")
-    print(f"dataframe shape: {dataframe.shape}")
+    print("=== dataframe index info ===")
+    print(f"index names: {dataframe.index.names}")
+    print(f"index sample: {dataframe.index[:5]}")
+    print(f"shape: {dataframe.shape}")
     print()
 
     dataframe.to_pickle(f"./dataset/data/{region}/{args.universe}_{seq_len}_dataframe_learn.pkl")
@@ -200,7 +198,7 @@ if __name__ == "__main__":
     if not os.path.exists("./dataset/data/US"):
         os.makedirs("./dataset/data/US")
 
-    print("Preparing datasets...")  # 실제로 dataloader에서 나오면: feature, prior, label(future_returns) 순서로 나옴
+    print("Preparing datasets...")  # DataLoader yields (feature, prior, label/future_returns) in order
     dl_train = dataset.prepare(
         "train", col_set=["feature", "prior", "label"], data_key=DataHandlerLP.DK_L)
     dl_valid = dataset.prepare(
@@ -208,32 +206,30 @@ if __name__ == "__main__":
     dl_test = dataset.prepare(
         "test", col_set=["feature", "prior", "label"], data_key=DataHandlerLP.DK_I)  # DK_I
 
-    print(f"dl_train 타입: {type(dl_train)}")
+    print(f"dl_train type: {type(dl_train)}")
 
-    # get_index() 메소드로 인덱스 확인
     if hasattr(dl_train, 'get_index'):
         train_index = dl_train.get_index()
-        print(f"dl_train 인덱스 타입: {type(train_index)}")
-        print(f"dl_train 인덱스 이름들: {train_index.names}")
-        print(f"dl_train 인덱스 샘플 (처음 5개): {train_index[:5]}")
-        print(f"dl_train 인덱스 길이: {len(train_index)}")
+        print(f"dl_train index type: {type(train_index)}")
+        print(f"dl_train index names: {train_index.names}")
+        print(f"dl_train index sample (first 5): {train_index[:5]}")
+        print(f"dl_train index length: {len(train_index)}")
     else:
-        print("dl_train에 get_index() 메소드가 없습니다.")
+        print("dl_train has no get_index() method.")
 
-    # valid와 test도 확인
     if hasattr(dl_valid, 'get_index'):
         valid_index = dl_valid.get_index()
-        print(f"dl_valid 인덱스 타입: {type(valid_index)}")
-        print(f"dl_valid 인덱스 이름들: {valid_index.names}")
-        print(f"dl_valid 인덱스 샘플 (처음 5개): {valid_index[:5]}")
-        print(f"dl_valid 인덱스 길이: {len(valid_index)}")
+        print(f"dl_valid index type: {type(valid_index)}")
+        print(f"dl_valid index names: {valid_index.names}")
+        print(f"dl_valid index sample (first 5): {valid_index[:5]}")
+        print(f"dl_valid index length: {len(valid_index)}")
 
     if hasattr(dl_test, 'get_index'):
         test_index = dl_test.get_index()
-        print(f"dl_test 인덱스 타입: {type(test_index)}")
-        print(f"dl_test 인덱스 이름들: {test_index.names}")
-        print(f"dl_test 인덱스 샘플 (처음 5개): {test_index[:5]}")
-        print(f"dl_test 인덱스 길이: {len(test_index)}")
+        print(f"dl_test index type: {type(test_index)}")
+        print(f"dl_test index names: {test_index.names}")
+        print(f"dl_test index sample (first 5): {test_index[:5]}")
+        print(f"dl_test index length: {len(test_index)}")
 
     dl_train.config(fillna_type='ffill+bfill')
     dl_valid.config(fillna_type='ffill+bfill')

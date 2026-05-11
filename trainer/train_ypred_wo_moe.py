@@ -24,7 +24,7 @@ import math
 from module.layers.src import ListNetLoss
 
 def softcap_log1p(x, c):
-    x = F.relu(x)                # 음수 방지 의도라면
+    x = F.relu(x)
     return c * torch.log1p(x / c)
 
 class LatentValueHead(nn.Module):
@@ -180,8 +180,6 @@ class GenerateReturn(pl.LightningModule):
             f_prior  = prior_factor_normed,
             f_latent = f_latent,
         )
-        # ! ERASE THIS
-        ##loss_imp = torch.clamp(loss_imp, min=0, max=self.aux_imp)
         loss_imp = softcap_log1p(loss_imp, self.aux_imp)
         return y_pred, beta_p, beta_l, z_q, loss_imp
 
@@ -254,10 +252,10 @@ class GenerateReturn(pl.LightningModule):
                     print(f"Deleting key {k} from state_dict.")
                     del sd[k]
         self.load_state_dict(sd, strict=False)
-        print(f"모델이 {path}에서 복원되었습니다.")
+        print(f"Model restored from {path}.")
 
     def load_pretrained_vqvae(self, checkpoint_path=None):
-        print(f"사전 훈련된 FVQVAE 모델을 {checkpoint_path}에서 로드합니다...")
+        print(f"Loading pretrained FVQ-VAE from {checkpoint_path}...")
         checkpoint = torch.load(checkpoint_path, map_location="cuda")
         if "state_dict" in checkpoint:
             state_dict = checkpoint["state_dict"]
@@ -278,9 +276,9 @@ class GenerateReturn(pl.LightningModule):
         missing_encoder, unexpected_encoder = self.encoder.load_state_dict(encoder_state_dict, strict=True)
         missing_quantizer, unexpected_quantizer = self.quantizer.load_state_dict(quantizer_state_dict, strict=True)
         missing_revin, unexpected_revin = self.revin.load_state_dict(revin_state_dict, strict=True)
-        print(f"--- Encoder 로드 완료: missing={len(missing_encoder)}, unexpected={len(unexpected_encoder)}")
-        print(f"--- Quantizer 로드 완료: missing={len(missing_quantizer)}, unexpected={len(unexpected_quantizer)}")
-        print(f"--- RevIN 로드 완료: missing={len(missing_revin)}, unexpected={len(unexpected_revin)}")
+        print(f"--- Encoder loaded: missing={len(missing_encoder)}, unexpected={len(unexpected_encoder)}")
+        print(f"--- Quantizer loaded: missing={len(missing_quantizer)}, unexpected={len(unexpected_quantizer)}")
+        print(f"--- RevIN loaded: missing={len(missing_revin)}, unexpected={len(unexpected_revin)}")
 
     def freeze_vqvae(self):
         for param in self.encoder.parameters():
@@ -289,7 +287,7 @@ class GenerateReturn(pl.LightningModule):
             param.requires_grad = False
         for param in self.revin.parameters():
             param.requires_grad = False
-        print("== FVQ-VAE 모델 가중치 고정 완료 ==")
+        print("== FVQ-VAE weights frozen ==")
         self.encoder.eval()
         self.quantizer.eval()
         self.revin.eval()

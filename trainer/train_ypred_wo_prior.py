@@ -197,7 +197,7 @@ class GenerateReturn(pl.LightningModule):
             self.log('val_loss_epoch', val_loss_epoch, on_step=False, on_epoch=True, logger=True, sync_dist=True)
 
     def load_pretrained_vqvae(self, checkpoint_path=None):
-        print(f"사전 훈련된 FVQVAE 모델을 {checkpoint_path}에서 로드합니다...")
+        print(f"Loading pretrained FVQ-VAE from {checkpoint_path}...")
         checkpoint = torch.load(checkpoint_path, map_location="cuda")
         state_dict = checkpoint["state_dict"] if "state_dict" in checkpoint else checkpoint
         revin_state_dict = {}
@@ -221,7 +221,7 @@ class GenerateReturn(pl.LightningModule):
             for p in m.parameters():
                 p.requires_grad = False
             m.eval()
-        print("== FVQ-VAE 모델 가중치 고정 완료 ==")
+        print("== FVQ-VAE weights frozen ==")
 
 
 class ReturnPredictor(nn.Module):

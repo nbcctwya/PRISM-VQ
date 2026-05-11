@@ -47,7 +47,7 @@ def _flatten(prefix: str, value: Any, out: Dict[str, Any]) -> None:
         return
 
     if isinstance(value, list):
-        # wandb config 값은 JSON 직렬화 가능해야 하므로 리스트는 문자열로 보관
+        # wandb config values must be JSON-serializable; store lists as JSON strings.
         out[prefix] = json.dumps(value)
         return
 
@@ -59,12 +59,12 @@ def _flatten(prefix: str, value: Any, out: Dict[str, Any]) -> None:
 
 
 def make_wandb_config(cfg: DictConfig) -> Dict[str, Any]:
-    """Hydra DictConfig 전체를 wandb-friendly한 평탄 dict로 변환."""
+    """Flatten a Hydra DictConfig into a wandb-friendly dict."""
     container = OmegaConf.to_container(cfg, resolve=True, enum_to_str=True)
     if not isinstance(container, dict):
         return {}
 
-    # hydra 메타데이터는 너무 방대하니 핵심 정보만 남기고 나머지는 제거
+    # Hydra metadata is bulky; keep only the bits we want surfaced.
     hydra_meta = container.pop("hydra", {})
     if isinstance(hydra_meta, dict):
         job = hydra_meta.get("job", {})

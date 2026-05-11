@@ -19,8 +19,8 @@ class RankLoss(nn.Module):
 
         if r_pred.shape[0] != r_true.shape[0]:
             raise ValueError(
-                f"입력 r_pred와 r_true는 동일한 수의 요소를 가져야 합니다. "
-                f"요소 개수: r_pred: {r_pred.shape[0]}, r_true: {r_true.shape[0]}"
+                f"r_pred and r_true must have the same number of elements. "
+                f"Got r_pred: {r_pred.shape[0]}, r_true: {r_true.shape[0]}"
             )
 
 
@@ -33,8 +33,8 @@ class RankLoss(nn.Module):
         mse_loss = F.mse_loss(r_pred, r_true, reduction='mean')
 
 
-        r_pred_expanded = r_pred.unsqueeze(0)  # 형태: [1, B]
-        r_true_expanded = r_true.unsqueeze(0)  # 형태: [1, B]
+        r_pred_expanded = r_pred.unsqueeze(0)  # shape: [1, B]
+        r_true_expanded = r_true.unsqueeze(0)  # shape: [1, B]
 
         # Compute pairwise differences for r_pred and r_true
         r_pred_diff = r_pred_expanded.unsqueeze(2) - r_pred_expanded.unsqueeze(1)

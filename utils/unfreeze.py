@@ -18,7 +18,7 @@ class UnfreezeDecoderCallback(pl.Callback):
             
             # Set flag
             self.decoder_unfrozen = True
-            # ★ configure_optimizers() 다시 호출하여 완전히 새 옵티마/스케줄러 만들기
+            # Rebuild optimizer and scheduler from scratch via configure_optimizers().
             optimizers, schedulers = pl_module.configure_optimizers()
             trainer.strategy.setup_optimizers(trainer)
             trainer.optimizers = optimizers

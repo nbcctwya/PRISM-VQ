@@ -1,17 +1,17 @@
-# Vector-Quantized Discrete Latent Factors Meet Financial Priors: Dynamic Cross-Sectional Stock Rank Prediction
+# Vector-Quantized Discrete Latent Factors Meet Financial Priors: Dynamic Cross-Sectional Stock Ranking Prediction for Portfolio Construction
 
 <div align="center">
 
 [![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.4.1-red.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Status](https://img.shields.io/badge/Status-Under%20Review-orange.svg)](https://github.com)
+[![Status](https://img.shields.io/badge/Status-Accepted-brightgreen.svg)](https://github.com)
 
 </div>
 
 This repository contains the implementation of **PRISM-VQ** (PRior-Informed Stock Model with Vector Quantization), a unified dynamic factor model for stock return prediction.
 
-📄 **Paper**: Submitted to IJCAI-ECAI 2026
+📄 **Paper**: Accepted at IJCAI-ECAI 2026
 
 ---
 
@@ -45,7 +45,7 @@ Hydra & OmegaConf
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/PRISM-VQ.git
+git clone https://github.com/x7jeon8gi/PRISM-VQ.git
 cd PRISM-VQ
 
 # Install dependencies

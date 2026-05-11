@@ -1,5 +1,5 @@
 qlib_init:
-  provider_uri: "workspace/DVQ-DFM/qlib/qlib_data/cn_data"
+  provider_uri: "~/.qlib/qlib_data/cn_data" #"workspace/DVQ-DFM/qlib/qlib_data/cn_data"
   region: cn
 market: &market csi300
 benchmark: &benchmark SH000300
@@ -18,7 +18,6 @@ data_handler_config: &data_handler_config
     - class: Fillna
       kwargs:
         fields_group: feature
-    # todo: prior 에 대해 CSZScoreNorm 적용 하는 방식도 실험할 필요 있을까? -> GPT: No
     - class: RobustZScoreNorm
       kwargs:
         fields_group: prior
@@ -33,7 +32,7 @@ data_handler_config: &data_handler_config
       kwargs:
         fields_group: label
 
-  label: ["Ref($close, -5) / Ref($close, -1) - 1"] # 5일 뒤 종가 / 1일 뒤 종가 - 1
+  label: ["Ref($close, -5) / Ref($close, -1) - 1"]  # 5-day forward return: close(t+5) / close(t+1) - 1
 
 task:
   dataset:

@@ -37,69 +37,42 @@ class VectorQuantiser(nn.Module):
         self.embedding.weight.data.uniform_(-1.0 / self.num_embed, 1.0 / self.num_embed)
         self.register_buffer("embed_prob", torch.zeros(self.num_embed))
 
-    
-# forward 함수 내부의 수정 필요한 부분들:
     def forward(self, h_batch):
-        # h_batch: 입력 텐서, shape: (B, D) == (N_t, d)
-
-        # --- 1. 입력 Reshape 제거 ---
-        # 기존 코드: z = rearrange(z, 'b c h w -> b h w c').contiguous()
-        # 기존 코드: z_flattened = z.view(-1, self.embed_dim)
-        # 수정 후: 입력 h_batch를 그대로 사용 (이미 (B, D) 형태)
-
-        # --- 2. 거리 계산 시 입력 변수 수정 ---
-        # 기존 코드: d = - torch.sum(z_flattened.detach() ** 2, ...) or d = torch.einsum('bd,dn->bn', normed_z_flattened, ...)
-        # 수정 후: z_flattened.detach() -> h_batch.detach() 사용
+        # h_batch: (B, D) == (N_t, d)
         if self.distance == 'l2':
-            # h_batch.detach() 사용
             d = - torch.sum(h_batch.detach() ** 2, dim=1, keepdim=True) - \
                 torch.sum(self.embedding.weight ** 2, dim=1) + \
                 2 * torch.einsum('bd, dn-> bn', h_batch.detach(), rearrange(self.embedding.weight, 'n d-> d n'))
         elif self.distance == 'cos':
-            # h_batch.detach() 사용 (normed_z_flattened 대신)
             normed_h_batch = F.normalize(h_batch, dim=1).detach()
             normed_codebook = F.normalize(self.embedding.weight, dim=1)
             d = torch.einsum('bd,dn->bn', normed_h_batch, rearrange(normed_codebook, 'n d -> d n'))
 
-        # --- 3. 양자화 벡터 생성 및 Reshape 수정 ---
-        # encoding_indices 계산은 동일
         sort_distance, indices = d.sort(dim=1)
         encoding_indices = indices[:,-1]
         encodings = torch.zeros(encoding_indices.unsqueeze(1).shape[0], self.num_embed, device=h_batch.device)
         encodings.scatter_(1, encoding_indices.unsqueeze(1), 1)
 
-        # 기존 코드: z_q = torch.matmul(encodings, self.embedding.weight).view(z.shape)
-        # 수정 후: view(z.shape) 제거. 결과는 이미 (B, D) 형태임. 변수명 변경 권장.
-        z_q_vectors = torch.matmul(encodings, self.embedding.weight) # shape: (B, D)
+        z_q_vectors = torch.matmul(encodings, self.embedding.weight)  # (B, D)
 
-        # --- 4. 손실 함수 계산 변수 수정 ---
-        # 기존 코드: loss = self.beta * torch.mean((z_q.detach()-z)**2) + torch.mean((z_q - z.detach()) ** 2)
-        # 수정 후: z -> h_batch, z_q -> z_q_vectors 사용
         loss = self.beta * torch.mean((z_q_vectors.detach() - h_batch)**2) + torch.mean((z_q_vectors - h_batch.detach()) ** 2)
 
-        # --- 5. STE 적용 변수 및 최종 반환값 수정 ---
-        # 기존 코드: z_q = z + (z_q - z).detach()
-        # 기존 코드: z_q = rearrange(z_q, 'b h w c -> b c h w').contiguous()
-        # 수정 후: 올바른 변수 사용 및 최종 reshape 제거. 반환값 형태는 (B, D).
-        z_q_output = h_batch + (z_q_vectors - h_batch).detach() # STE 적용
+        # Straight-through estimator
+        z_q_output = h_batch + (z_q_vectors - h_batch).detach()
 
-        # perplexity, min_encodings 등 계산은 그대로 유지 가능 (encodings 사용)
         avg_probs = torch.mean(encodings, dim=0)
         perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs + 1e-10)))
-        min_encodings = encodings # Note: min_encodings 변수명은 약간 오해의 소지가 있음. 실제로는 one-hot 인코딩임.
+        min_encodings = encodings  # one-hot encodings
 
-        # --- 6. Online Reinitialization / Contrastive Loss 입력 수정 ---
         if self.training:
             # calculate the average usage of code entries
             self.embed_prob.mul_(self.decay).add_(avg_probs, alpha= 1 - self.decay)
             if self.anchor in ['closest', 'random', 'probrandom'] and (not self.init):
-                # 기존 코드: random_feat = z_flattened.detach()[...] 등
-                # 수정 후: h_batch.detach() 사용
                 if self.anchor == 'closest':
-                    sort_distance_reinit, indices_reinit = d.sort(dim=0) # 여기서 d는 위에서 계산한 거리
+                    sort_distance_reinit, indices_reinit = d.sort(dim=0)
                     random_feat = h_batch.detach()[indices_reinit[-1,:]]
                 elif self.anchor == 'random':
-                    random_feat = self.pool.query(h_batch.detach()) # FeaturePool 입력 확인
+                    random_feat = self.pool.query(h_batch.detach())
                 elif self.anchor == 'probrandom':
                     norm_distance = F.softmax(d.t(), dim=1)
                     prob = torch.multinomial(norm_distance, num_samples=1).view(-1)
@@ -119,7 +92,6 @@ class VectorQuantiser(nn.Module):
                 contra_loss = F.cross_entropy(dis, torch.zeros((dis.size(0),), dtype=torch.long, device=dis.device))
                 loss += contra_loss
 
-        # 최종 반환: 양자화된 벡터 (STE 적용됨), 손실, 기타 정보
         return z_q_output, loss, (perplexity, min_encodings, encoding_indices)
 
 

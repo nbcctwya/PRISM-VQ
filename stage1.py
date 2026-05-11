@@ -21,7 +21,7 @@ from utils.wandb import make_wandb_config
 
 torch.set_float32_matmul_precision('high')
 
-# OmegaConf resolver 등록 - n_expert의 절반을 계산하는 함수
+# OmegaConf resolver for computing half of n_expert
 OmegaConf.register_new_resolver("half", lambda x: int(x) // 2)
 
 def _build_run_name(cfg: DictConfig) -> str:
@@ -34,7 +34,7 @@ def _build_run_name(cfg: DictConfig) -> str:
     vq_embed_dim = cfg.vqvae.vq_embed_dim
     distance = cfg.vqvae.quantizer.distance
     pred_len = cfg.vqvae.predictor.pred_len
-    seed = 42  # stage1.py는 항상 seed 42로 고정
+    seed = 42  # stage1 always uses seed 42
     universe = cfg.data.universe
 
     return (
@@ -55,6 +55,7 @@ def _build_callbacks(cfg: DictConfig, run_name: str) -> List[Callback]:
         {
             "_target_": "pytorch_lightning.callbacks.ModelCheckpoint",
             "save_top_k": 1,
+            "save_last": True,
             "monitor": early_cfg.monitor,
             "mode": early_cfg.mode,
             "dirpath": str(checkpoint_dir),
@@ -73,7 +74,6 @@ def _build_callbacks(cfg: DictConfig, run_name: str) -> List[Callback]:
     return [instantiate(cb_cfg) for cb_cfg in callbacks_cfg]
 
 def _build_wandb_logger(cfg: DictConfig, run_name: str) -> WandbLogger:
-    # config는 나중에 수동으로 업데이트할 거임
     logger_cfg = {
         "_target_": "pytorch_lightning.loggers.wandb.WandbLogger",
         "project": cfg.train.project_name,
@@ -87,16 +87,14 @@ def _build_wandb_logger(cfg: DictConfig, run_name: str) -> WandbLogger:
 
     logger_cfg = {k: v for k, v in logger_cfg.items() if v is not None}
     logger = instantiate(logger_cfg)
-    
-    # wandb가 초기화된 후에 config 업데이트
+
     try:
         clean_config = make_wandb_config(cfg)
         if hasattr(logger, 'experiment') and clean_config:
             logger.experiment.config.update(clean_config)
     except Exception:
-        print("config 업데이트 실패")
-        pass  # config 업데이트 실패해도 상관없음
-    
+        print("wandb config update failed")
+
     return logger
 
 
@@ -135,12 +133,12 @@ def train(cfg: DictConfig,
 
 
 def get_region(region_code: str):
-    """지역 코드에 따라 적절한 qlib 지역 상수를 반환합니다."""
+    """Return the matching qlib region constant; defaults to REG_CN."""
     region_map = {
         'CN': REG_CN,
         'US': REG_US,
     }
-    return region_map.get(region_code, REG_CN)  # 기본값은 REG_CN
+    return region_map.get(region_code, REG_CN)
 
 
 def _load_data_handler_config(cfg: DictConfig) -> dict:
@@ -166,7 +164,7 @@ def _prepare_dataset(cfg: DictConfig,
     window_size = cfg.data.window_size
 
     if not data_path:
-        raise ValueError("data_path가 설정되지 않았습니다. config.yaml에서 data.data_path를 설정해주세요.")
+        raise ValueError("data.data_path is not configured. Set it in config.yaml.")
     
     expected_files = {
         'train': data_path / region_code / f"{universe_prefix}_{window_size}_h{pred_horizon}_dl2_train.pkl",
@@ -175,7 +173,7 @@ def _prepare_dataset(cfg: DictConfig,
     
     missing = [str(p) for p in expected_files.values() if not p.exists()]
     if missing:
-        raise FileNotFoundError(f"필요한 pickle 파일들이 존재하지 않습니다: {', '.join(missing)}")
+        raise FileNotFoundError(f"Required pickle files not found: {', '.join(missing)}")
     
     print(f"========== Loading data from pickle: {data_path} ==========")
     train_prepare = pickle.load(open(expected_files['train'], 'rb'))
@@ -185,14 +183,13 @@ def _prepare_dataset(cfg: DictConfig,
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
 def main(cfg: DictConfig) -> None:
-    # 실행 시점의 config를 메모리에 고정하여 실행 중 변경에 영향받지 않게 함
+    # Freeze the config at launch so mid-run mutations are ignored
     frozen_cfg = OmegaConf.create(OmegaConf.to_container(cfg, resolve=True))
     OmegaConf.set_readonly(frozen_cfg, True)
-    
+
     config_dict = OmegaConf.to_container(frozen_cfg, resolve=True)
     data_handler_config = _load_data_handler_config(frozen_cfg)
 
-    # stage1.py는 항상 seed 42로 고정
     fixed_seed = 42
     seed_everything(fixed_seed)
     pl.seed_everything(fixed_seed, workers=True)

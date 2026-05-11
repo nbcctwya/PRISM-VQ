@@ -216,10 +216,10 @@ def plot_3d_surface(
         ric_vals = np.array([d['RankIC'] for d in filtered_data2])
         scatter2 = plot_3d_subplot(
             ax2, vqk_vals, dm_vals, ric_vals,
-            'Codebook Size', '$d$', 'RankIC',
-            '(b) Codebook vs $d$', vmin, vmax, add_colorbar=False
+            'Codebook Size', '$d_t$', 'RankIC',
+            '(b) Codebook vs $d_t$', vmin, vmax, add_colorbar=False
         )
-        ax2.text2D(0.5, -0.10, '(b) Codebook vs $d$', transform=ax2.transAxes,
+        ax2.text2D(0.5, -0.10, '(b) Codebook vs $d_t$', transform=ax2.transAxes,
                    fontsize=11, fontweight='bold', ha='center', va='top')
 
     ax3 = fig.add_subplot(133, projection='3d')
@@ -230,10 +230,10 @@ def plot_3d_surface(
         ric_vals = np.array([d['RankIC'] for d in filtered_data3])
         scatter3 = plot_3d_subplot(
             ax3, dm_vals, mo_vals, ric_vals,
-            '$d$', 'MoE Experts', 'RankIC',
-            '(c) $d$ vs MoE', vmin, vmax, add_colorbar=False
+            '$d_t$', 'MoE Experts', 'RankIC',
+            '(c) $d_t$ vs MoE', vmin, vmax, add_colorbar=False
         )
-        ax3.text2D(0.5, -0.10, '(c) $d$ vs MoE', transform=ax3.transAxes,
+        ax3.text2D(0.5, -0.10, '(c) $d_t$ vs MoE', transform=ax3.transAxes,
                    fontsize=11, fontweight='bold', ha='center', va='top')
 
     # Enhanced colorbar with better visibility
@@ -403,9 +403,135 @@ def plot_3d_subplot(ax, x_values, y_values, z_values, xlabel, ylabel, zlabel, ti
 
 
 
+def _grid_from_points(x_vals, y_vals, z_vals, x_ticks, y_ticks):
+    """
+    Build a (len(y_ticks), len(x_ticks)) grid with NaN for missing entries.
+    y is rows, x is columns.
+    """
+    grid = np.full((len(y_ticks), len(x_ticks)), np.nan, dtype=float)
+    x_to_idx = {x: j for j, x in enumerate(x_ticks)}
+    y_to_idx = {y: i for i, y in enumerate(y_ticks)}
+    for x, y, z in zip(x_vals, y_vals, z_vals):
+        if x in x_to_idx and y in y_to_idx:
+            grid[y_to_idx[y], x_to_idx[x]] = z
+    return grid
+
+def _annotate_heatmap(ax, grid, vmin, vmax):
+    """Add cell annotations with appropriate text color."""
+    for i in range(grid.shape[0]):
+        for j in range(grid.shape[1]):
+            if np.isfinite(grid[i, j]):
+                val = grid[i, j]
+                norm_val = (val - vmin) / (vmax - vmin) if vmax > vmin else 0.5
+                text_color = 'white' if norm_val > 0.5 else 'black'
+                ax.text(j, i, f"{val:.4f}", ha='center', va='center',
+                        fontsize=9, fontweight='bold', color=text_color)
+
+
+def _setup_heatmap_ax(ax, grid, x_ticks, y_ticks, vmin, vmax, xlabel, ylabel):
+    """Setup a single heatmap panel."""
+    im = ax.imshow(grid, origin='lower', aspect='equal', interpolation='nearest',
+                   vmin=vmin, vmax=vmax, cmap='viridis')
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_xticks(range(len(x_ticks)))
+    ax.set_xticklabels(x_ticks)
+    ax.set_yticks(range(len(y_ticks)))
+    ax.set_yticklabels(y_ticks)
+
+    # Add grid lines
+    ax.set_xticks(np.arange(-0.5, len(x_ticks), 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, len(y_ticks), 1), minor=True)
+    ax.grid(which='minor', color='white', linewidth=1.5)
+    ax.tick_params(which='minor', size=0)
+
+    _annotate_heatmap(ax, grid, vmin, vmax)
+    return im
+
+
+def plot_2d_grid_heatmaps(
+    data,
+    market: str,
+    save_dir: str = "sensitivity/plots",
+    fname_prefix: str = "2d_grid_sensitivity",
+):
+    """
+    Clean heatmap for IJCAI-style publication.
+    3 panels: (a) Codebook vs MoE, (b) Codebook vs d, (c) d vs MoE
+    """
+    if not data:
+        print(f"No data available for {market}")
+        return
+
+    BEST_DM = 64
+    BEST_VQK = 512
+    BEST_MO = 2 if market == 'csi300' else 8
+
+    all_ric = np.array([d['RankIC'] for d in data], dtype=float)
+    vmin, vmax = float(np.nanmin(all_ric)), float(np.nanmax(all_ric))
+
+    fig, axes = plt.subplots(1, 3, figsize=(10, 2.8))
+    plt.subplots_adjust(wspace=0.35, left=0.06, right=0.88, top=0.88)
+
+    # (a) Codebook vs MoE at dm=BEST_DM
+    fd = [d for d in data if d['dm'] == BEST_DM]
+    x_ticks = sorted({d['VQK'] for d in fd})
+    y_ticks = sorted({d['mo'] for d in fd})
+    grid = _grid_from_points(
+        np.array([d['VQK'] for d in fd]),
+        np.array([d['mo'] for d in fd]),
+        np.array([d['RankIC'] for d in fd]),
+        x_ticks, y_ticks
+    )
+    _setup_heatmap_ax(axes[0], grid, x_ticks, y_ticks, vmin, vmax,
+                      "Codebook Size", "MoE Experts")
+
+    # (b) Codebook vs d at mo=BEST_MO
+    fd = [d for d in data if d['mo'] == BEST_MO]
+    x_ticks = sorted({d['VQK'] for d in fd})
+    y_ticks = sorted({d['dm'] for d in fd})
+    grid = _grid_from_points(
+        np.array([d['VQK'] for d in fd]),
+        np.array([d['dm'] for d in fd]),
+        np.array([d['RankIC'] for d in fd]),
+        x_ticks, y_ticks
+    )
+    _setup_heatmap_ax(axes[1], grid, x_ticks, y_ticks, vmin, vmax,
+                      "Codebook Size", r"$d_t$")
+
+    # (c) d vs MoE at VQK=BEST_VQK
+    fd = [d for d in data if d['VQK'] == BEST_VQK]
+    x_ticks = sorted({d['dm'] for d in fd})
+    y_ticks = sorted({d['mo'] for d in fd})
+    grid = _grid_from_points(
+        np.array([d['dm'] for d in fd]),
+        np.array([d['mo'] for d in fd]),
+        np.array([d['RankIC'] for d in fd]),
+        x_ticks, y_ticks
+    )
+    im = _setup_heatmap_ax(axes[2], grid, x_ticks, y_ticks, vmin, vmax,
+                           r"$d_t$", "MoE Experts")
+
+    # Titles at fixed y position
+    title_y = 0.95
+    fig.text(0.18, title_y, "(a) Codebook vs MoE", ha='center', fontsize=11)
+    fig.text(0.48, title_y, r"(b) Codebook vs $d_t$", ha='center', fontsize=11)
+    fig.text(0.78, title_y, r"(c) $d_t$ vs MoE", ha='center', fontsize=11)
+
+    # Shared colorbar
+    cbar_ax = fig.add_axes([0.90, 0.15, 0.02, 0.7])
+    cbar = fig.colorbar(im, cax=cbar_ax)
+    cbar.set_label("RankIC")
+
+    os.makedirs(save_dir, exist_ok=True)
+    out_path = os.path.join(save_dir, f"{fname_prefix}_{market}.png")
+    fig.savefig(out_path, dpi=300, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    print(f"Saved 2D grid heatmap: {out_path}")
+
 def main():
     """Generate 3D sensitivity analysis plots for both markets."""
-    res_dir = '/workspace/FVQ-VAE/res'
+    res_dir = '/workspace/PRISM-VQ/res'
 
     for market in ['csi300', 'sp500']:
         print(f"\n{'='*60}")
@@ -425,7 +551,8 @@ def main():
 
             # Generate plots
             print(f"\nGenerating 3D plots for {market}...")
-            plot_3d_surface(data, market)
+            # plot_3d_surface(data, market)
+            plot_2d_grid_heatmaps(data, market)
         else:
             print(f"No data found for {market}")
 

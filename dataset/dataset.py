@@ -12,8 +12,7 @@ class DailyBatchSamplerRandom(Sampler):
         self.data_source = data_source
         self.shuffle = shuffle
 
-        # Sort index by datetime to ensure correct ordering
-        self.index_df = self.data_source.get_index().sortlevel(0)[0]
+        self.index_df = self.data_source.get_index()
         datetime_level = self.index_df.names.index('datetime')
         daily_groups = pd.Series(self.index_df.values).groupby(self.index_df.get_level_values(datetime_level))
 

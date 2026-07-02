@@ -111,6 +111,11 @@ def build_factor_matrix(raw_df: pd.DataFrame, query: str, qlib_calendar: pd.Inde
     return cumulative_returns
 
 
+def resolve_provider_uri(config: dict, fallback: str) -> str:
+    provider_uri = config.get("qlib_init", {}).get("provider_uri", fallback)
+    return str(Path(provider_uri).expanduser())
+
+
 if __name__ == "__main__":
     args = load_args()
     print(args)
@@ -118,9 +123,6 @@ if __name__ == "__main__":
 
     if args.universe == "csi300":
         print("********** China Market **********")
-        provider_uri = "qlib_data/cn_data"  # target_dir
-
-        qlib.init(provider_uri=provider_uri, region=REG_CN)
         name = '[chn]_[all_themes]_[daily]_[vw_cap].csv'
         market = "csi300"
         benchmark = "SH000300"
@@ -128,12 +130,11 @@ if __name__ == "__main__":
         query = "location=='chn' and weighting=='vw_cap' and freq=='daily'"
         with open(f"dataset/2024_csi300.yaml", 'r') as f:
             config = yaml.safe_load(f)
+        provider_uri = resolve_provider_uri(config, "qlib_data/cn_data")
+        qlib.init(provider_uri=provider_uri, region=REG_CN)
 
     elif args.universe == "csi500":
         print("********** China Market 500 **********")
-        provider_uri = "qlib_data/cn_data"  # target_dir
-
-        qlib.init(provider_uri=provider_uri, region=REG_CN)
         name = '[chn]_[all_themes]_[daily]_[vw_cap].csv'
         market = "csi500"
         benchmark = "SH000500"
@@ -141,25 +142,33 @@ if __name__ == "__main__":
         query = "location=='chn' and weighting=='vw_cap' and freq=='daily'"
         with open(f"dataset/2024_csi500.yaml", 'r') as f:
             config = yaml.safe_load(f)
+        provider_uri = resolve_provider_uri(config, "qlib_data/cn_data")
+        qlib.init(provider_uri=provider_uri, region=REG_CN)
 
     elif args.universe == "sp500":
         print("********** US Market **********")
-        provider_uri = "qlib_data/us_data"  # target_dir
         name = '[usa]_[all_themes]_[daily]_[vw_cap].csv'
         market = "sp500"
         benchmark = "^gspc"
         region = 'US'
-        print(f"provider_uri: {provider_uri}, region: {REG_US}, name: {name}")
-        qlib.init(provider_uri=provider_uri, region=REG_US)
         with open(f"dataset/2024_sp500.yaml", 'r') as f:
             config = yaml.safe_load(f)
+        provider_uri = resolve_provider_uri(config, "qlib_data/us_data")
+        print(f"provider_uri: {provider_uri}, region: {REG_US}, name: {name}")
+        qlib.init(provider_uri=provider_uri, region=REG_US)
         query = "location=='usa' and weighting=='vw_cap' and freq=='daily'"
 
     else:
         raise ValueError(f"Invalid universe: {args.universe}")
 
     seq_len = config['task']['dataset']['kwargs']['step_len']
-    raw_df = pd.read_csv(f'dataset/data/{name}')
+    jkp_path = Path("dataset/data") / name
+    if not jkp_path.exists():
+        raise FileNotFoundError(
+            f"JKP factor file not found: {jkp_path}. "
+            "Download or copy it into dataset/data before preprocessing."
+        )
+    raw_df = pd.read_csv(jkp_path)
     raw_df["date"] = pd.to_datetime(raw_df["date"])
 
     qlib_calendar = D.calendar(start_time=config['data_handler_config']['start_time'],
@@ -182,8 +191,11 @@ if __name__ == "__main__":
     print(f"shape: {dataframe.shape}")
     print()
 
-    dataframe.to_pickle(f"./dataset/data/{region}/{args.universe}_{seq_len}_dataframe_learn.pkl")
-    df_I.to_pickle(f"./dataset/data/{region}/{args.universe}_{seq_len}_dataframe_infer.pkl")
+    output_dir = Path("./dataset/data") / region
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    dataframe.to_pickle(output_dir / f"{args.universe}_{seq_len}_dataframe_learn.pkl")
+    df_I.to_pickle(output_dir / f"{args.universe}_{seq_len}_dataframe_infer.pkl")
 
     dataset = TSDatasetH(
         handler=handler,
@@ -191,12 +203,6 @@ if __name__ == "__main__":
         step_len=config['task']['dataset']['kwargs']['step_len'],
         fillna_type='ffill+bfill'
     )
-
-    if not os.path.exists("./dataset/data/CN"):
-        os.makedirs("./dataset/data/CN")
-
-    if not os.path.exists("./dataset/data/US"):
-        os.makedirs("./dataset/data/US")
 
     print("Preparing datasets...")  # DataLoader yields (feature, prior, label/future_returns) in order
     dl_train = dataset.prepare(
@@ -235,11 +241,11 @@ if __name__ == "__main__":
     dl_valid.config(fillna_type='ffill+bfill')
     dl_test.config(fillna_type='ffill+bfill')
 
-    with open(f"./dataset/data/{region}/{args.universe}_{seq_len}_h{len(horizons)}_dl2_train.pkl", "wb") as f:
+    with open(output_dir / f"{args.universe}_{seq_len}_h{len(horizons)}_dl2_train.pkl", "wb") as f:
         pickle.dump(dl_train, f)
-    with open(f"./dataset/data/{region}/{args.universe}_{seq_len}_h{len(horizons)}_dl2_valid.pkl", "wb") as f:
+    with open(output_dir / f"{args.universe}_{seq_len}_h{len(horizons)}_dl2_valid.pkl", "wb") as f:
         pickle.dump(dl_valid, f)
-    with open(f"./dataset/data/{region}/{args.universe}_{seq_len}_h{len(horizons)}_dl2_test.pkl", "wb") as f:
+    with open(output_dir / f"{args.universe}_{seq_len}_h{len(horizons)}_dl2_test.pkl", "wb") as f:
         pickle.dump(dl_test, f)
-    with open(f"./dataset/data/{region}/{args.universe}_{seq_len}_h{len(horizons)}_dl2_dataset.pkl", "wb") as f:
+    with open(output_dir / f"{args.universe}_{seq_len}_h{len(horizons)}_dl2_dataset.pkl", "wb") as f:
         pickle.dump(dataset, f)

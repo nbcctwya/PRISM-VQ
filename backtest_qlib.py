@@ -197,6 +197,13 @@ def _resolve_universe(universe: str, provider_uri: Optional[str]) -> Tuple[str, 
     )
 
 
+def _default_output_dir(pred_path: Path, topk: int, drop: int) -> Path:
+    seed = pred_path.stem.split("_", 1)[0]
+    if not seed:
+        seed = "unknown"
+    return pred_path.parent / "backtest" / f"seed{seed}_top{topk}_drop{drop}"
+
+
 def _make_metric_frame(report: pd.DataFrame) -> pd.DataFrame:
     from qlib.contrib.evaluate import risk_analysis
 
@@ -278,7 +285,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min_cost", type=float, default=0.0, help="Minimum transaction cost.")
     parser.add_argument("--account", type=float, default=100000000.0, help="Initial account value.")
     parser.add_argument("--benchmark", default=None, help="Override benchmark instrument.")
-    parser.add_argument("--output_dir", default=None, help="Output directory. Defaults to pred_path parent.")
+    parser.add_argument(
+        "--output_dir",
+        default=None,
+        help="Output directory. Defaults to pred_path parent/backtest/seedX_topK_dropD.",
+    )
     return parser.parse_args()
 
 
@@ -295,7 +306,11 @@ def main() -> None:
 
     provider_uri, region, default_benchmark = _resolve_universe(args.universe, args.qlib_provider_uri)
     benchmark = args.benchmark or default_benchmark
-    output_dir = Path(args.output_dir).expanduser() if args.output_dir else pred_path.parent
+    output_dir = Path(args.output_dir).expanduser() if args.output_dir else _default_output_dir(
+        pred_path,
+        topk=args.topk,
+        drop=args.drop,
+    )
 
     normalized_pred, signal = _normalize_prediction_frame(pred_path)
     print(f"Loaded prediction: {pred_path}")

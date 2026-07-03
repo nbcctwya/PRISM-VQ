@@ -7,6 +7,12 @@ rsync_push.sh  # 本地同步到远程
 rsync_pull.sh  # 远程同步到本地
 ```
 
+另有一个实验结果处理脚本：
+
+```text
+ensemble_predictions.py  # 将多个 seed 的 stage2 预测分数平均成 ensemble 预测文件
+```
+
 它们主要用于 AutoDL 服务器和本地工作区之间同步代码、运行结果和少量必要数据。代码协作仍建议优先使用 Git；`rsync` 更适合传实验结果、checkpoint、临时数据文件。
 
 ## 默认配置
@@ -215,3 +221,40 @@ RSYNC_EXTRA_OPTS="--itemize-changes" scripts/rsync_pull.sh --dry-run
 - 代码长期协作优先使用 Git。
 - 运行结果建议放入唯一目录，避免不同服务器或本地实验互相覆盖。
 - 同步大文件前确认目标服务器磁盘空间。
+
+## 生成多 seed ensemble 预测
+
+`ensemble_predictions.py` 用于把多个 stage2 `*_best.pkl` 的 `score` 按
+`(datetime, instrument)` 对齐后取平均。输出仍然是一个可直接传给
+`backtest_qlib.py` 的 pickle 文件。
+
+以 csi300 五个 seed 为例：
+
+```bash
+conda run -n prism-vq python scripts/ensemble_predictions.py \
+  --run-dir res/VQK512_csi300_mo2_k1_mh64_md0.1_dm64_nh2_l1_d0.1_au0.01_1h2_1emb128_1dl2p10_1l2_p20_ai3_ks3 \
+  --seeds 0 1 2 3 4
+```
+
+默认输出：
+
+```text
+res/.../ensemble_5seed_best.pkl
+```
+
+然后可以直接回测：
+
+```bash
+conda run -n prism-vq python backtest_qlib.py \
+  --universe csi300 \
+  --pred_path res/.../ensemble_5seed_best.pkl \
+  --output_dir res/.../backtest/ensemble_5seed_top30_drop5
+```
+
+也可以显式指定输入文件和输出路径：
+
+```bash
+conda run -n prism-vq python scripts/ensemble_predictions.py \
+  --pred res/run/0_best.pkl res/run/1_best.pkl res/run/2_best.pkl \
+  --output res/run/ensemble_3seed_best.pkl
+```

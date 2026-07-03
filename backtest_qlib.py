@@ -1,5 +1,4 @@
 import argparse
-import importlib.util
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
@@ -7,80 +6,18 @@ import numpy as np
 import pandas as pd
 
 
-def _load_calculate_table_metrics():
-    metric_path = Path(__file__).resolve().parent / "utils" / "metric.py"
-    spec = importlib.util.spec_from_file_location("prism_vq_metric", metric_path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Could not load metric helper from {metric_path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module.calculate_table_metrics
+# 论文指标按 252 个交易日年化。
+TRADING_DAYS = 252
 
 
-def _fallback_calculate_table_metrics(series, period, name, target_return=0):
-    if period is not None:
-        if isinstance(period, int):
-            series = series[series.index.year == int(period)].copy()
-        elif isinstance(period, list):
-            series = series.loc[period[0] : period[1]].copy()
-
-    try:
-        daily_log_returns = series["return"]
-        cum_return = series["return"].cumsum()
-    except Exception:
-        daily_log_returns = series
-        cum_return = series.cumsum()
-
-    normal_cum_return = np.exp(cum_return)
-    max_cumulative_returns = normal_cum_return.cummax()
-    drawdown = (normal_cum_return - max_cumulative_returns) / (max_cumulative_returns + 1e-9)
-    mdd = drawdown.min()
-
-    annual_return = daily_log_returns.mean() * 252
-    annual_std = daily_log_returns.std() * np.sqrt(252)
-    sharpe_ratio = annual_return / annual_std
-
-    downside_returns = daily_log_returns[daily_log_returns < target_return]
-    downside_std = downside_returns.std() * np.sqrt(252)
-    sortino_ratio = (annual_return - target_return) / downside_std if downside_std != 0 else np.nan
-    calmar_ratio = annual_return / abs(mdd) if mdd != 0 else np.nan
-
-    turnover = series["turnover"].mean() if isinstance(series, pd.DataFrame) and "turnover" in series else np.nan
-
-    result = {
-        "Annualized Return": round(annual_return, 4),
-        "Annual Std": round(annual_std, 4),
-        "MDD": round(mdd, 4),
-        "Sharpe Ratio": round(sharpe_ratio, 4),
-        "Sortino Ratio": round(sortino_ratio, 4),
-        "Calmar Ratio": round(calmar_ratio, 4),
-        "Cumulative Returns": round(cum_return.iloc[-1], 4),
-        "Turnover": round(turnover, 4) if pd.notna(turnover) else np.nan,
-    }
-    return pd.DataFrame.from_dict(result, orient="index", columns=[name])
-
-
-_CALCULATE_TABLE_METRICS = None
-
-
-def _get_calculate_table_metrics():
-    global _CALCULATE_TABLE_METRICS
-    if _CALCULATE_TABLE_METRICS is not None:
-        return _CALCULATE_TABLE_METRICS
-    try:
-        _CALCULATE_TABLE_METRICS = _load_calculate_table_metrics()
-    except Exception as exc:
-        print(f"Warning: falling back to local calculate_table_metrics implementation: {exc}")
-        _CALCULATE_TABLE_METRICS = _fallback_calculate_table_metrics
-    return _CALCULATE_TABLE_METRICS
-
-
+# 兼容不同预测文件里常见的列名/索引名，最终统一成 Qlib 需要的格式。
 DATE_COLUMNS = ("datetime", "date", "time")
 INSTRUMENT_COLUMNS = ("instrument", "stock_id", "symbol", "code")
 SCORE_COLUMNS = ("score", "pred", "prediction", "pred_score", "Pred", "PRED")
 LABEL_COLUMNS = ("label", "realized_return", "realized_ret", "return", "ret", "LABEL0")
 
 
+# 每个 universe 对应的 Qlib 数据路径、市场区域和默认 benchmark。
 UNIVERSE_SETTINGS = {
     "sp500": {
         "region": "US",
@@ -113,6 +50,7 @@ def _find_first(candidates, names) -> Optional[str]:
 
 
 def _normalize_prediction_frame(pred_path: Path) -> Tuple[pd.DataFrame, pd.Series]:
+    """读取 stage2 的 *_best.pkl，并整理成 Qlib signal 所需的 MultiIndex Series。"""
     pred = pd.read_pickle(pred_path)
     if isinstance(pred, pd.Series):
         pred = pred.to_frame(name=pred.name or "score")
@@ -121,6 +59,7 @@ def _normalize_prediction_frame(pred_path: Path) -> Tuple[pd.DataFrame, pd.Serie
 
     pred = pred.copy()
 
+    # stage2 结果通常是 (datetime, instrument) MultiIndex；这里也兼容普通列格式。
     if isinstance(pred.index, pd.MultiIndex):
         index_names = list(pred.index.names)
         date_level = _find_first(DATE_COLUMNS, index_names)
@@ -172,9 +111,11 @@ def _normalize_prediction_frame(pred_path: Path) -> Tuple[pd.DataFrame, pd.Serie
 
     normalized_cols = ["datetime", "instrument", "score"]
     if label_col is not None:
+        # label 仅用于留档和人工检查；Qlib 组合回测只消费 score。
         pred["label"] = pd.to_numeric(pred[label_col], errors="coerce")
         normalized_cols.append("label")
 
+    # Qlib 的 TopkDropoutStrategy 期望 signal 的索引是 (datetime, instrument)。
     normalized = (
         pred[normalized_cols]
         .drop_duplicates(subset=["datetime", "instrument"], keep="last")
@@ -204,17 +145,68 @@ def _default_output_dir(pred_path: Path, topk: int, drop: int) -> Path:
     return pred_path.parent / "backtest" / f"seed{seed}_top{topk}_drop{drop}"
 
 
+def _portfolio_returns_after_cost(report: pd.DataFrame) -> pd.Series:
+    """Qlib report 中 return 是扣费前收益；论文口径需要先扣除交易成本。"""
+    gross_return = report["return"].astype(float)
+    cost = report["cost"].astype(float).fillna(0.0) if "cost" in report else 0.0
+    return (gross_return - cost).rename("return")
+
+
+def _paper_metrics(simple_return: pd.Series, turnover: Optional[pd.Series], name: str) -> pd.DataFrame:
+    """按论文公式计算 AR、MDD、Sharpe 等指标。"""
+    simple_return = simple_return.astype(float).replace([np.inf, -np.inf], np.nan).dropna()
+    if simple_return.empty:
+        raise ValueError(f"No valid return observations for {name}.")
+    if (simple_return <= -1).any():
+        bad_count = int((simple_return <= -1).sum())
+        raise ValueError(f"{name} contains {bad_count} return values <= -100%, cannot compute log returns.")
+
+    # g_{p,t}=log(1+r_{p,t})，AR=exp(252*mean(g))-1。
+    daily_log_return = np.log1p(simple_return)
+    wealth = np.exp(daily_log_return.cumsum())
+    drawdown = wealth / wealth.cummax() - 1.0
+
+    annual_return = np.expm1(daily_log_return.mean() * TRADING_DAYS)
+    annual_std = daily_log_return.std() * np.sqrt(TRADING_DAYS)
+    sharpe_ratio = (
+        np.sqrt(TRADING_DAYS) * daily_log_return.mean() / daily_log_return.std()
+        if daily_log_return.std() != 0
+        else np.nan
+    )
+    downside = daily_log_return[daily_log_return < 0]
+    downside_std = downside.std() * np.sqrt(TRADING_DAYS)
+    sortino_ratio = annual_return / downside_std if downside_std != 0 else np.nan
+    mdd = drawdown.min()
+    calmar_ratio = annual_return / abs(mdd) if mdd != 0 else np.nan
+
+    turnover_value = np.nan
+    if turnover is not None:
+        turnover_value = turnover.reindex(simple_return.index).astype(float).mean()
+
+    result = {
+        "Annualized Return": round(annual_return, 4),
+        "Annual Std": round(annual_std, 4),
+        "MDD": round(mdd, 4),
+        "Sharpe Ratio": round(sharpe_ratio, 4),
+        "Sortino Ratio": round(sortino_ratio, 4),
+        "Calmar Ratio": round(calmar_ratio, 4),
+        "Cumulative Returns": round(wealth.iloc[-1] - 1.0, 4),
+        "Turnover": round(turnover_value, 4) if pd.notna(turnover_value) else np.nan,
+    }
+    return pd.DataFrame.from_dict(result, orient="index", columns=[name])
+
+
 def _make_metric_frame(report: pd.DataFrame) -> pd.DataFrame:
     from qlib.contrib.evaluate import risk_analysis
 
-    calculate_table_metrics = _get_calculate_table_metrics()
-
-    portfolio_return = report["return"].astype(float)
+    # 所有 portfolio / excess 指标都用扣成本后的净收益，和论文回测口径一致。
+    portfolio_return = _portfolio_returns_after_cost(report)
     benchmark_return = report["bench"].astype(float) if "bench" in report else None
     excess_return = portfolio_return - benchmark_return if benchmark_return is not None else None
 
     metric_sections: Dict[str, pd.Series] = {}
 
+    # 保留一份 Qlib 原生 risk_analysis 输出，便于和 Qlib 默认口径交叉检查。
     qlib_port = risk_analysis(portfolio_return.dropna(), freq="day", mode="sum")["risk"]
     metric_sections["qlib_portfolio"] = qlib_port
 
@@ -223,18 +215,18 @@ def _make_metric_frame(report: pd.DataFrame) -> pd.DataFrame:
     if excess_return is not None:
         metric_sections["qlib_excess"] = risk_analysis(excess_return.dropna(), freq="day", mode="sum")["risk"]
 
-    table_input = report[["return", "turnover"]].copy()
-    table_metrics = calculate_table_metrics(table_input, period=None, name="project_portfolio")
+    turnover = report["turnover"].astype(float) if "turnover" in report else None
+
+    # project_* 是论文公式口径：净收益 -> log return -> 年化/MDD/Sharpe。
+    table_metrics = _paper_metrics(portfolio_return, turnover, name="project_portfolio")
     metric_sections["project_portfolio"] = table_metrics["project_portfolio"]
 
     if benchmark_return is not None:
-        bench_input = pd.DataFrame({"return": benchmark_return, "turnover": 0.0}, index=report.index)
-        bench_metrics = calculate_table_metrics(bench_input, period=None, name="project_benchmark")
+        bench_metrics = _paper_metrics(benchmark_return, None, name="project_benchmark")
         metric_sections["project_benchmark"] = bench_metrics["project_benchmark"]
 
     if excess_return is not None:
-        excess_input = pd.DataFrame({"return": excess_return, "turnover": report["turnover"]}, index=report.index)
-        excess_metrics = calculate_table_metrics(excess_input, period=None, name="project_excess")
+        excess_metrics = _paper_metrics(excess_return, turnover, name="project_excess")
         metric_sections["project_excess"] = excess_metrics["project_excess"]
 
     return pd.DataFrame(metric_sections)
@@ -249,12 +241,16 @@ def _save_outputs(
 ) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # 对外保存的 return 使用扣费后净收益；gross_return/cost 保留用于追溯。
     returns = pd.DataFrame(index=report.index)
-    returns["return"] = report["return"]
+    returns["return"] = _portfolio_returns_after_cost(report)
+    returns["gross_return"] = report["return"]
+    if "cost" in report:
+        returns["cost"] = report["cost"]
     if "bench" in report:
         returns["benchmark"] = report["bench"]
         returns["excess_return"] = returns["return"] - returns["benchmark"]
-    for optional_col in ["turnover", "total_turnover", "cost", "total_cost", "account", "value", "cash"]:
+    for optional_col in ["turnover", "total_turnover", "total_cost", "account", "value", "cash"]:
         if optional_col in report:
             returns[optional_col] = report[optional_col]
 
@@ -322,12 +318,14 @@ def main() -> None:
     qlib_region = REG_US if region == "US" else REG_CN
     qlib.init(provider_uri=provider_uri, region=qlib_region)
 
+    # 论文使用 Qlib TopK-DropN：每天根据 5 日收益预测分数调仓，默认 K=30、DropN=5。
     strategy = TopkDropoutStrategy(
         signal=signal,
         topk=args.topk,
         n_drop=args.drop,
     )
 
+    # Qlib 原生回测负责成交、持仓更新和交易成本；指标阶段再用净收益计算论文口径。
     report, positions = backtest_daily(
         start_time=args.start_time,
         end_time=args.end_time,

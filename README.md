@@ -81,6 +81,7 @@ All model configurations are managed through Hydra configuration files located i
 - `data.universe`: Choose between 'sp500' or 'csi300'
 - `vqvae.num_embed`: Number of codebook entries
 - `predictor.n_expert`: Number of experts in MoE
+- `stage2_presets`: Market-specific Stage 2 defaults for checkpoint, auxiliary weight, MoE experts, and attention heads. `stage2.py` applies these automatically from `data.universe`.
 
 
 ## 📁 Project Structure

@@ -32,8 +32,7 @@ vqvae:
     pred_weight: 0.0001
 
 data:
-  #universe: 'sp500' # !
-  universe: 'csi300' # !
+  universe: 'csi300'
   data_path: 'dataset/data'
   window_size: 20
   step: 1
@@ -41,29 +40,38 @@ data:
   valid_period : ["2021-01-01", "2022-12-31"]  # 2 years
   test_period  : ["2023-01-01", "2025-12-31"]  # 3 years
 
-#sp500: sp500_h128_VQK512_C128_emb128_dl2p10_s42-epoch=28-val_loss=0.7354.ckpt
-#csi300: "csi300_h128_VQK512_C128_emb128_dl2p10_s42-epoch=8-val_loss=0.5882.ckpt"
+stage2_presets:
+  csi300:
+    predictor:
+      saved_model: "infucsi300_h128_VQK512_C128_emb128_dl2p10_s42-epoch=9-val_loss=0.5682.ckpt"
+      aux_weight: 0.01
+      n_expert: 2
+      transformer:
+        num_heads: 2
+  sp500:
+    predictor:
+      saved_model: "infusp500_h128_VQK512_C128_emb128_dl2p10_s42-epoch=1-val_loss=0.7590.ckpt"
+      aux_weight: 0.001
+      n_expert: 8
+      transformer:
+        num_heads: 4
+
 predictor: 
-  #sp500：seed42+0 saved_model: "infusp500_h128_VQK512_C128_emb128_dl2p10_s42-epoch=1-val_loss=0.7590.ckpt"  
   saved_model: "infucsi300_h128_VQK512_C128_emb128_dl2p10_s42-epoch=9-val_loss=0.5682.ckpt"
-  #Original saved_model: "sp500_h128_VQK512_C128_emb128_dl2p10_s42-epoch=28-val_loss=0.7354.ckpt"
   num_features: 158
   individual: False
-  #aux_weight: 0.001 # ! csi300 : 0.01, sp500 : 0.001
-  aux_weight: 0.01 # ! csi300 : 0.01, sp500 : 0.001
+  aux_weight: 0.01
 
   kernel_size: 3
   k: ${half:${predictor.n_expert}} 
-  #n_expert: 8   # ! csi300: 2, sp500: 8
-  n_expert: 2   # ! csi300: 2, sp500: 8
+  n_expert: 2
   pred_len: 20  
   moe_hidden: 64 
   dropout: 0.1
 
   transformer:
     pe_kind: 'rope'
-    #num_heads: 4  #! csi300: 2, sp500: 4
-    num_heads: 2  #! csi300: 2, sp500: 4
+    num_heads: 2
     num_layers: 1
     d_model: 64   
     dim_feedforward: 128

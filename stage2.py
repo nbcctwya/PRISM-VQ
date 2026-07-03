@@ -2,7 +2,7 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, Iterator, List, Optional, Tuple
 
 # Set env vars before importing PyTorch.
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
@@ -79,6 +79,88 @@ def _to_absolute_path(path: str) -> str:
         raise RuntimeError('Original working directory is not set.')
     return str((_ORIGINAL_CWD / path).resolve())
 
+
+def _iter_preset_leaves(node: DictConfig, prefix: str = '') -> Iterator[Tuple[str, Any]]:
+    """递归遍历 preset 节点，把所有叶子配置摊平成 (点分路径, 值) 的迭代器。
+
+    例如 {predictor: {n_expert: 2, transformer: {num_heads: 2}}} 会被展开为
+    [("predictor.n_expert", 2), ("predictor.transformer.num_heads", 2)]，
+    方便后续用 OmegaConf.update 按路径逐个写入。
+    """
+    for key, value in node.items():
+        path = f"{prefix}.{key}" if prefix else str(key)
+        if isinstance(value, DictConfig):
+            # 子节点仍是字典，递归向下并拼接路径
+            yield from _iter_preset_leaves(value, path)
+        else:
+            # 叶子节点：产出最终的点分路径与其取值
+            yield path, value
+
+
+def _override_key(override: str) -> Optional[str]:
+    """从一条 hydra 命令行 override 中提取配置键名。
+
+    取 `=` 左侧部分，并剥掉 hydra 的 `+`(新增)/`~`(删除) 前缀，返回纯键名
+    （如 `+predictor.n_expert=8` -> "predictor.n_expert"）。
+    若该 override 不含 `=`（例如纯删除语句 `~key`），返回 None。
+    """
+    if '=' not in override:
+        return None
+    return override.split('=', 1)[0].strip().lstrip('+~')
+
+
+def _override_matches_path(override: str, path: str) -> bool:
+    """判断某条命令行 override 是否作用在指定的配置路径上。
+
+    命中条件：override 的键名与 path 完全相同，或 path 是该键名的子项
+    （例如 override 指定了父级 predictor.transformer，则其下的
+    predictor.transformer.num_heads 也视为被覆盖）。这样用户在命令行
+    覆盖了父级时，preset 中对应的叶子会一并避让。
+    """
+    key = _override_key(override)
+    if not key:
+        return False
+    return key == path or path.startswith(f"{key}.")
+
+
+def _has_explicit_override(overrides: List[str], path: str) -> bool:
+    """检查指定路径是否已被任意一条命令行 override 显式指定。
+
+    用于决定 preset 中的某个字段是否需要避让：只要命令行已经显式给值，
+    就尊重用户输入，preset 不再覆盖（保证命令行优先级最高）。
+    """
+    return any(_override_matches_path(override, path) for override in overrides)
+
+
+def _apply_stage2_universe_preset(cfg: DictConfig, overrides: List[str]) -> List[str]:
+    """按当前 data.universe 应用对应的 stage2 预设超参。
+
+    流程：
+      1. 从 cfg.stage2_presets 取出当前 universe 的预设；没有则直接跳过。
+      2. 将预设摊平为 (路径, 值) 后逐个写入 cfg。
+      3. 已被命令行 override 显式指定的字段会被跳过（命令行优先级最高）。
+      4. 返回实际写入的路径列表，供上层打印日志。
+
+    注意：必须在 cfg 冻结（set_readonly）之前调用；写入的都是 predictor 下
+    已存在的键，因此不会触发 hydra struct 模式下的未知键报错。
+    """
+    presets = cfg.get('stage2_presets')
+    if not presets:
+        return []
+
+    universe = str(cfg.data.universe)
+    if universe not in presets:
+        return []
+
+    applied_paths = []
+    for path, value in _iter_preset_leaves(presets[universe]):
+        if _has_explicit_override(overrides, path):
+            # 命令行已显式指定该字段，尊重用户输入，preset 不覆盖
+            continue
+        OmegaConf.update(cfg, path, value, merge=False)
+        applied_paths.append(path)
+
+    return applied_paths
 
 
 def _build_run_name(cfg: DictConfig) -> str:
@@ -348,6 +430,13 @@ def main(cfg: DictConfig) -> float:
         base_cfg = _compose_frozen_config(overrides)
     else:
         base_cfg = cfg
+
+    applied_preset_paths = _apply_stage2_universe_preset(base_cfg, overrides)
+    if applied_preset_paths:
+        print(
+            f"Applied stage2 preset for {base_cfg.data.universe}: "
+            f"{', '.join(applied_preset_paths)}"
+        )
 
     frozen_cfg = OmegaConf.create(OmegaConf.to_container(base_cfg, resolve=True))
     OmegaConf.set_readonly(frozen_cfg, True)

@@ -55,9 +55,9 @@ conda run -n prism-vq python dataset/get_dataset.py --universe csi500
 脚本会读取对应配置：
 
 ```text
-csi300 -> dataset/2024_csi300.yaml
-sp500  -> dataset/2024_sp500.yaml
-csi500 -> dataset/2024_csi500.yaml
+csi300 -> dataset/2025_csi300.yaml
+sp500  -> dataset/2025_sp500.yaml
+csi500 -> dataset/2025_csi500.yaml
 ```
 
 输出位置：
@@ -81,7 +81,7 @@ dataset/data/CN/csi300_20_h10_dl2_dataset.pkl
 注意：
 
 - `dataset/data/` 不提交到 Git。
-- 如果 Qlib 路径不同，修改 `dataset/2024_*.yaml` 里的 `qlib_init.provider_uri`。
+- 如果 Qlib 路径不同，修改 `dataset/2025_*.yaml` 里的 `qlib_init.provider_uri`。
 - 如果重新生成数据集，同名 pickle 会被覆盖。
 
 ## 2. 运行 Stage 1
@@ -257,8 +257,8 @@ drop = 5
 open_cost = 0.0005
 close_cost = 0.0015
 min_cost = 0
-start_time = 2022-01-01
-end_time = 2024-12-31
+start_time = 2023-01-01
+end_time = 2025-12-31
 ```
 
 CSI300 seed0：

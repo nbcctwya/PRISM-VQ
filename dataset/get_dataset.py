@@ -85,7 +85,7 @@ def load_args():
     parser.add_argument('--config', type=str, help="Path to the config data file.",
                         default=get_root_dir().joinpath('configs', 'config.yaml'))
     parser.add_argument('--data_handler_config', type=str, help="Path to the data handler config file.",
-                        default=get_root_dir().joinpath('configs', '2024_csi300.yaml'))
+                        default=get_root_dir().joinpath('dataset', '2025_csi300.yaml'))
     parser.add_argument('--universe', type=str, help="Market universe (csi300 or sp500 or csi500)",
                         default="csi300")
     return parser.parse_args()
@@ -128,7 +128,7 @@ if __name__ == "__main__":
         benchmark = "SH000300"
         region = 'CN'
         query = "location=='chn' and weighting=='vw_cap' and freq=='daily'"
-        with open(f"dataset/2024_csi300.yaml", 'r') as f:
+        with open(f"dataset/2025_csi300.yaml", 'r') as f:
             config = yaml.safe_load(f)
         provider_uri = resolve_provider_uri(config, "qlib_data/cn_data")
         qlib.init(provider_uri=provider_uri, region=REG_CN)
@@ -140,7 +140,7 @@ if __name__ == "__main__":
         benchmark = "SH000500"
         region = 'CN'
         query = "location=='chn' and weighting=='vw_cap' and freq=='daily'"
-        with open(f"dataset/2024_csi500.yaml", 'r') as f:
+        with open(f"dataset/2025_csi500.yaml", 'r') as f:
             config = yaml.safe_load(f)
         provider_uri = resolve_provider_uri(config, "qlib_data/cn_data")
         qlib.init(provider_uri=provider_uri, region=REG_CN)
@@ -151,7 +151,7 @@ if __name__ == "__main__":
         market = "sp500"
         benchmark = "^gspc"
         region = 'US'
-        with open(f"dataset/2024_sp500.yaml", 'r') as f:
+        with open(f"dataset/2025_sp500.yaml", 'r') as f:
             config = yaml.safe_load(f)
         provider_uri = resolve_provider_uri(config, "qlib_data/us_data")
         print(f"provider_uri: {provider_uri}, region: {REG_US}, name: {name}")

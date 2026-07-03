@@ -15,9 +15,9 @@
    对应配置文件位于：
 
    ```text
-   dataset/2024_csi300.yaml
-   dataset/2024_csi500.yaml
-   dataset/2024_sp500.yaml
+   dataset/2025_csi300.yaml
+   dataset/2025_csi500.yaml
+   dataset/2025_sp500.yaml
    ```
 
    其中 `qlib_init.provider_uri` 控制 Qlib 数据路径。
@@ -44,9 +44,9 @@ python dataset/get_dataset.py --universe sp500
 脚本会自动读取对应的 YAML 配置：
 
 ```text
-csi300 -> dataset/2024_csi300.yaml
-csi500 -> dataset/2024_csi500.yaml
-sp500  -> dataset/2024_sp500.yaml
+csi300 -> dataset/2025_csi300.yaml
+csi500 -> dataset/2025_csi500.yaml
+sp500  -> dataset/2025_sp500.yaml
 ```
 
 ## 输出文件
@@ -87,9 +87,9 @@ data:
 5. 构建 `TSDatasetH`，并切分为：
 
    ```text
-   train: 2009-01-01 到 2019-12-31
-   valid: 2020-01-01 到 2021-12-31
-   test:  2022-01-01 到 2024-12-31
+   train: 2009-01-01 到 2020-12-31
+   valid: 2021-01-01 到 2022-12-31
+   test:  2023-01-01 到 2025-12-31
    ```
 
 6. 将训练、验证、测试数据序列化为 pickle 文件。

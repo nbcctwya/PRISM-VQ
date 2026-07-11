@@ -11,6 +11,35 @@
 
 This repository contains the implementation of **PRISM-VQ** (PRior-Informed Stock Model with Vector Quantization), a unified dynamic factor model for stock return prediction.
 
+## Baseline Results Protocol v1.0
+
+The repository includes a non-invasive adapter that evaluates the existing
+CSI300 and S&P 500 seed predictions under a common Qlib protocol.  It does not
+replace training or the project's native backtest outputs.  Generate and
+validate the comparable artifacts with:
+
+```bash
+conda run -n prism-vq python generate_baseline_results.py --out results
+conda run -n prism-vq python inspect_eval_results.py --out results
+conda run -n prism-vq python -m unittest -v tests/test_protocol_metrics.py
+```
+
+`results/metrics/` contains numeric seed, aggregate, and independently
+re-backtested ensemble metrics.  `results/tables/` contains four-decimal
+display tables only, `results/curves/ensemble/` contains daily gross return,
+cost, net return, benchmark return, and NAV series, and `results/metadata/`
+records the discovered data split and complete evaluation convention.
+`results/diagnostics/validation.json` is the machine-readable validation
+report.  Saved aligned ensemble scores under `results/artifacts/ensemble/`
+allow the validator to reproduce ensemble IC and RankIC directly.
+
+Prediction metrics are daily cross-sectional Pearson IC and Spearman RankIC;
+their IR values use daily sample standard deviation (`ddof=1`) without annual
+scaling.  Portfolio metrics use `log1p(gross_return - cost)`, 252 trading days,
+sample standard deviation, zero risk-free rate, and zero daily MAR.  The
+protocol backtest uses Qlib `TopkDropoutStrategy` with TopK=30, DropN=5 and the
+full fixed configuration recorded in `results/metadata/eval_config.json`.
+
 📄 **Paper**: Accepted at IJCAI-ECAI 2026
 
 ---

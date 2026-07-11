@@ -1,0 +1,123 @@
+{
+  "schema_version": "1.0",
+  "baseline": "prism_vq",
+  "models": [
+    "prism_vq"
+  ],
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "markets_or_datasets": [
+    "csi300",
+    "sp500"
+  ],
+  "splits": {
+    "train": [
+      "2009-01-01",
+      "2020-12-31"
+    ],
+    "valid": [
+      "2021-01-01",
+      "2022-12-31"
+    ],
+    "test": [
+      "2023-01-01",
+      "2025-12-31"
+    ]
+  },
+  "label_horizon": "5-day forward return: close(t+5)/close(t+1)-1",
+  "strategy": {
+    "class": "TopkDropoutStrategy",
+    "topk": 30,
+    "n_drop": 5,
+    "method_sell": "bottom",
+    "method_buy": "top",
+    "hold_thresh": 1,
+    "only_tradable": false,
+    "forbid_all_trade_at_limit": true,
+    "risk_degree": 0.95,
+    "freq": "day"
+  },
+  "backtest": {
+    "freq": "day",
+    "account": 100000000,
+    "open_cost": 0.0005,
+    "close_cost": 0.0015,
+    "min_cost": 0,
+    "deal_price": "close",
+    "start_time": "2023-01-01",
+    "end_time": "2025-12-31"
+  },
+  "markets": {
+    "csi300": {
+      "provider_uri": "~/.qlib/qlib_data/cn_data",
+      "region": "cn",
+      "instruments": "csi300",
+      "benchmark": "SH000300",
+      "limit_rule": "Qlib REG_CN default limit_threshold=0.095; suspension and tradability enforced by Exchange",
+      "deal_price": "close",
+      "trade_unit": "Qlib region default",
+      "executor": "SimulatorExecutor(time_per_step=day)",
+      "long_only": true,
+      "leverage": false,
+      "test_start": "2023-01-01",
+      "test_end": "2025-12-31"
+    },
+    "sp500": {
+      "provider_uri": "~/.qlib/qlib_data/us_data",
+      "region": "us",
+      "instruments": "sp500",
+      "benchmark": "^gspc",
+      "limit_rule": "Qlib REG_US default limit_threshold=None; suspension and tradability enforced by Exchange",
+      "deal_price": "close",
+      "trade_unit": "Qlib region default",
+      "executor": "SimulatorExecutor(time_per_step=day)",
+      "long_only": true,
+      "leverage": false,
+      "test_start": "2023-01-01",
+      "test_end": "2025-12-31"
+    }
+  },
+  "qlib_version": "0.9.7",
+  "signal_alignment": {
+    "signal_date": "t-1",
+    "trade_date": "t",
+    "qlib_internal_shift": 1,
+    "adapter_manual_shift": false
+  },
+  "return_semantics": {
+    "qlib_report.return": "gross_before_cost",
+    "net_formula": "report.return - report.cost",
+    "cost_deducted_exactly_once": true,
+    "basis": "Qlib portfolio report exposes return and cost separately; native excess_return_without_cost subtracts bench from return"
+  },
+  "metric_convention": {
+    "annualization": 252,
+    "returns": "log1p(daily net simple return)",
+    "std_ddof": 1,
+    "risk_free_rate": 0,
+    "MAR_daily": 0,
+    "AR": "exp(mean(g)*252)-1",
+    "STD": "std(g,ddof=1)*sqrt(252)",
+    "MDD": "min([1,exp(cumsum(g))]/cummax-1)",
+    "Sharpe": "sqrt(252)*mean(g)/std(g,ddof=1)",
+    "Sortino": "sqrt(252)*mean(g)/sqrt(mean(min(g,0)^2))",
+    "Calmar": "AR/abs(MDD)"
+  },
+  "ensemble": {
+    "enabled": true,
+    "methods": [
+      "avg_none"
+    ],
+    "join": "inner",
+    "normalize": "none",
+    "score_formula": "arithmetic mean of aligned raw seed scores",
+    "ranking_metrics_source": "ensemble score joined to aligned test label and recomputed"
+  },
+  "data_version_or_cutoff": "Qlib local data covering through 2025-12-31; repository does not expose a dataset revision ID",
+  "git_commit": "0831b073f9500d0cf4416dee8b08b190a673d419"
+}

@@ -1,0 +1,147 @@
+{
+  "passed": true,
+  "passes": 28,
+  "failures": 0,
+  "checks": [
+    {
+      "name": "manifest exists",
+      "passed": true,
+      "detail": "/home/nbcctwya/baselines/PRISM-VQ/results/metadata/manifest.json"
+    },
+    {
+      "name": "manifest file: seed_metrics",
+      "passed": true,
+      "detail": "metrics/seed_metrics.csv"
+    },
+    {
+      "name": "manifest file: aggregate_metrics",
+      "passed": true,
+      "detail": "metrics/aggregate_metrics.csv"
+    },
+    {
+      "name": "manifest file: seed_table",
+      "passed": true,
+      "detail": "tables/seed_mean_std.csv"
+    },
+    {
+      "name": "manifest file: eval_config",
+      "passed": true,
+      "detail": "metadata/eval_config.json"
+    },
+    {
+      "name": "manifest file: validation",
+      "passed": true,
+      "detail": "diagnostics/validation.json"
+    },
+    {
+      "name": "manifest file: ensemble_metrics",
+      "passed": true,
+      "detail": "metrics/ensemble_metrics.csv"
+    },
+    {
+      "name": "manifest file: ensemble_table",
+      "passed": true,
+      "detail": "tables/ensemble.csv"
+    },
+    {
+      "name": "fixed CSV columns",
+      "passed": true,
+      "detail": "seed/aggregate/ensemble columns match schema"
+    },
+    {
+      "name": "seed experiment completeness",
+      "passed": true,
+      "detail": "expected=10, actual=10, missing=[]"
+    },
+    {
+      "name": "seed primary key unique",
+      "passed": true,
+      "detail": "no duplicates"
+    },
+    {
+      "name": "aggregate primary key unique",
+      "passed": true,
+      "detail": "no duplicates"
+    },
+    {
+      "name": "ensemble primary key unique",
+      "passed": true,
+      "detail": "no duplicates"
+    },
+    {
+      "name": "seed metrics finite",
+      "passed": true,
+      "detail": "no allowed undefined exceptions in this run"
+    },
+    {
+      "name": "seed metric bounds",
+      "passed": true,
+      "detail": "IC/RankIC/STD/MDD bounds"
+    },
+    {
+      "name": "aggregate recomputation",
+      "passed": true,
+      "detail": "mean/std ddof=1"
+    },
+    {
+      "name": "seed table derivation",
+      "passed": true,
+      "detail": "four-decimal mean ± std"
+    },
+    {
+      "name": "ensemble completeness",
+      "passed": true,
+      "detail": "{('csi300', 'prism_vq', 'avg_none'), ('sp500', 'prism_vq', 'avg_none')}"
+    },
+    {
+      "name": "ensemble metrics finite",
+      "passed": true,
+      "detail": "all finite"
+    },
+    {
+      "name": "ensemble display derivation",
+      "passed": true,
+      "detail": "four-decimal values"
+    },
+    {
+      "name": "fixed Qlib configuration",
+      "passed": true,
+      "detail": "all strategy/backtest constants explicit"
+    },
+    {
+      "name": "signal timing",
+      "passed": true,
+      "detail": "Qlib strategy performs the only shift"
+    },
+    {
+      "name": "csi300 ensemble curve",
+      "passed": true,
+      "detail": "727 unique daily rows; curve and portfolio metrics reproduced"
+    },
+    {
+      "name": "csi300 ensemble score",
+      "passed": true,
+      "detail": "217909 aligned rows; raw-score average and ranking metrics reproduced"
+    },
+    {
+      "name": "csi300 test coverage",
+      "passed": true,
+      "detail": "declared=['2023-01-01', '2025-12-31']; calendar=2023-01-03..2025-12-31, 727 days"
+    },
+    {
+      "name": "sp500 ensemble curve",
+      "passed": true,
+      "detail": "752 unique daily rows; curve and portfolio metrics reproduced"
+    },
+    {
+      "name": "sp500 ensemble score",
+      "passed": true,
+      "detail": "369714 aligned rows; raw-score average and ranking metrics reproduced"
+    },
+    {
+      "name": "sp500 test coverage",
+      "passed": true,
+      "detail": "declared=['2023-01-01', '2025-12-31']; calendar=2023-01-03..2025-12-31, 752 days"
+    }
+  ]
+}

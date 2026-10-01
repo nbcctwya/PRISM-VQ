@@ -1,7 +1,7 @@
 {
-  "passed": true,
-  "passes": 28,
-  "failures": 0,
+  "passed": false,
+  "passes": 24,
+  "failures": 4,
   "checks": [
     {
       "name": "manifest exists",
@@ -120,13 +120,13 @@
     },
     {
       "name": "csi300 ensemble score",
-      "passed": true,
-      "detail": "217909 aligned rows; raw-score average and ranking metrics reproduced"
+      "passed": false,
+      "detail": "ModuleNotFoundError: No module named 'numpy._core.numeric'"
     },
     {
       "name": "csi300 test coverage",
-      "passed": true,
-      "detail": "declared=['2023-01-01', '2025-12-31']; calendar=2023-01-03..2025-12-31, 727 days"
+      "passed": false,
+      "detail": "ModuleNotFoundError: No module named 'qlib'"
     },
     {
       "name": "sp500 ensemble curve",
@@ -135,13 +135,13 @@
     },
     {
       "name": "sp500 ensemble score",
-      "passed": true,
-      "detail": "369714 aligned rows; raw-score average and ranking metrics reproduced"
+      "passed": false,
+      "detail": "ModuleNotFoundError: No module named 'numpy._core.numeric'"
     },
     {
       "name": "sp500 test coverage",
-      "passed": true,
-      "detail": "declared=['2023-01-01', '2025-12-31']; calendar=2023-01-03..2025-12-31, 752 days"
+      "passed": false,
+      "detail": "ModuleNotFoundError: No module named 'qlib'"
     }
   ]
 }

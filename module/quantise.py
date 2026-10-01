@@ -33,12 +33,13 @@ class VectorQuantiser(nn.Module):
         self.init = False
 
         self.pool = FeaturePool(self.num_embed, self.embed_dim)
-        self.embedding = nn.Embedding(self.num_embed, self.embed_dim)
+        self.embedding = nn.Embedding(self.num_embed, self.embed_dim)  #（512，128） CodeBook
         self.embedding.weight.data.uniform_(-1.0 / self.num_embed, 1.0 / self.num_embed)
-        self.register_buffer("embed_prob", torch.zeros(self.num_embed))
+        self.register_buffer("embed_prob", torch.zeros(self.num_embed)) # Code使用概率
 
     def forward(self, h_batch):
         # h_batch: (B, D) == (N_t, d)
+        # 计算l2或是余弦相似度
         if self.distance == 'l2':
             d = - torch.sum(h_batch.detach() ** 2, dim=1, keepdim=True) - \
                 torch.sum(self.embedding.weight ** 2, dim=1) + \
@@ -50,11 +51,12 @@ class VectorQuantiser(nn.Module):
 
         sort_distance, indices = d.sort(dim=1)
         encoding_indices = indices[:,-1]
+        # one-hot encoding
         encodings = torch.zeros(encoding_indices.unsqueeze(1).shape[0], self.num_embed, device=h_batch.device)
         encodings.scatter_(1, encoding_indices.unsqueeze(1), 1)
 
         z_q_vectors = torch.matmul(encodings, self.embedding.weight)  # (B, D)
-
+        # commitment loss + codebook loss
         loss = self.beta * torch.mean((z_q_vectors.detach() - h_batch)**2) + torch.mean((z_q_vectors - h_batch.detach()) ** 2)
 
         # Straight-through estimator

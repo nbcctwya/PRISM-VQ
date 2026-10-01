@@ -16,3 +16,6 @@ res/
 dataset/data/
 
 *.log
+
+# dynamic evaluation outputs (yearly/quarterly/monthly)
+dynamic_metrics/

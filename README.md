@@ -30,8 +30,9 @@ display tables only, `results/curves/ensemble/` contains daily gross return,
 cost, net return, benchmark return, and NAV series, and `results/metadata/`
 records the discovered data split and complete evaluation convention.
 `results/diagnostics/validation.json` is the machine-readable validation
-report.  Saved aligned ensemble scores under `results/artifacts/ensemble/`
-allow the validator to reproduce ensemble IC and RankIC directly.
+report.  No extra cache or artifact directory is written inside `results/`;
+the validator reconstructs the ensemble score from the seed predictions when
+needed.
 
 Prediction metrics are daily cross-sectional Pearson IC and Spearman RankIC;
 their IR values use daily sample standard deviation (`ddof=1`) without annual

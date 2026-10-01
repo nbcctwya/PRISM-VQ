@@ -146,8 +146,7 @@ def write_metadata(root: Path, out: Path, qlib_version: str) -> None:
     files = {"seed_metrics": "metrics/seed_metrics.csv", "aggregate_metrics": "metrics/aggregate_metrics.csv",
              "seed_table": "tables/seed_mean_std.csv", "eval_config": "metadata/eval_config.json",
              "validation": "diagnostics/validation.json", "ensemble_metrics": "metrics/ensemble_metrics.csv",
-             "ensemble_table": "tables/ensemble.csv", "ensemble_curves": "curves/ensemble/*.csv",
-             "ensemble_scores": "artifacts/ensemble/*.pkl"}
+             "ensemble_table": "tables/ensemble.csv", "ensemble_curves": "curves/ensemble/*.csv"}
     manifest = {"schema_version": "1.0", "baseline": BASELINE_ID,
                 "description": "PRISM-VQ predictions evaluated with Baseline Results Protocol v1.0",
                 "primary_keys": {"seed_metrics": ["market", "model", "seed"],
@@ -162,7 +161,7 @@ def main() -> None:
     args = parser.parse_args()
     root = Path(__file__).resolve().parent
     out = args.out if args.out.is_absolute() else root / args.out
-    for sub in ("metrics", "tables", "curves/ensemble", "artifacts/ensemble", "metadata", "diagnostics"):
+    for sub in ("metrics", "tables", "curves/ensemble", "metadata", "diagnostics"):
         (out / sub).mkdir(parents=True, exist_ok=True)
 
     import qlib
@@ -185,8 +184,6 @@ def main() -> None:
 
         ensemble = make_ensemble(frames)
         check_calendar_coverage(market, ensemble["score"])
-        score_path = out / "artifacts" / "ensemble" / f"{market}_{MODEL_ID}_avg_none.pkl"
-        ensemble.to_pickle(score_path)
         report = run_backtest(market, ensemble["score"])
         curve = curve_from_report(report)
         curve.to_csv(out / "curves" / "ensemble" / f"{market}_{MODEL_ID}.csv", index=False)

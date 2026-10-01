@@ -99,7 +99,6 @@ def validate(out: Path, root: Path) -> dict:
 
     for market in RUNS:
         curve_path = out / "curves" / "ensemble" / f"{market}_{MODEL_ID}.csv"
-        score_path = out / "artifacts" / "ensemble" / f"{market}_{MODEL_ID}_avg_none.pkl"
         row = ens[(ens.market == market) & (ens.model == MODEL_ID)].iloc[0]
         def curve_check():
             c = pd.read_csv(curve_path, parse_dates=["datetime"])
@@ -118,11 +117,10 @@ def validate(out: Path, root: Path) -> dict:
         def score_check():
             frames = [load_prediction(root / RUNS[market]["run_dir"] / f"{s}_best.pkl") for s in SEEDS]
             rebuilt = make_ensemble(frames)
-            saved = pd.read_pickle(score_path)
-            assert rebuilt.index.equals(saved.index) and close(rebuilt.score, saved.score) and close(rebuilt.label, saved.label)
-            rank = ranking_metrics(saved)
-            assert all(np.isclose(rank[k], row[k], rtol=1e-9, atol=1e-10) for k in RANKING_METRICS)
-            return f"{len(saved)} aligned rows; raw-score average and ranking metrics reproduced"
+            assert rebuilt.index.is_unique and rebuilt.index.equals(rebuilt.index.sort_values())
+            rank_rebuilt = ranking_metrics(rebuilt)
+            assert all(np.isclose(rank_rebuilt[k], row[k], rtol=1e-9, atol=1e-10) for k in RANKING_METRICS)
+            return f"{len(rebuilt)} aligned rows; raw-score average and ranking metrics reproduced"
         v.attempt(f"{market} ensemble score", score_check)
 
         def coverage_check():
@@ -132,7 +130,8 @@ def validate(out: Path, root: Path) -> dict:
             mc = RUNS[market]
             qlib.init(provider_uri=str(Path(mc["provider_uri"]).expanduser()), region=REG_CN if mc["region"] == "cn" else REG_US)
             cal = pd.DatetimeIndex(D.calendar(start_time=TEST[0], end_time=TEST[1], freq="day"))
-            dates = pd.DatetimeIndex(pd.read_pickle(score_path).index.get_level_values("datetime").unique())
+            rebuilt = make_ensemble([load_prediction(root / RUNS[market]["run_dir"] / f"{s}_best.pkl") for s in SEEDS])
+            dates = pd.DatetimeIndex(rebuilt.index.get_level_values("datetime").unique())
             assert len(cal.difference(dates)) == 0
             c = pd.read_csv(curve_path, parse_dates=["datetime"])
             assert c.datetime.min() == cal.min() and c.datetime.max() == cal.max() and len(c) == len(cal)

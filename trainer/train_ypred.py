@@ -115,6 +115,7 @@ class GenerateReturn(pl.LightningModule):
         # 4. Factor Loading
         self.z_prior_norm = nn.LayerNorm(self.num_prior_factors)
         self.loadings = LoadingGenerator(config)
+        # LatentValueHead或许可魔改@@@   ***
         self.latent_value_head = LatentValueHead(
             d_latent=self.vq_embed_dim,
             K = self.vq_embed_dim
@@ -179,7 +180,7 @@ class GenerateReturn(pl.LightningModule):
         z_q, _, (_, min_encodings, vq_idx) = self.quantizer(h_batch)
         z_q = z_q.detach()
 
-        ####### STAGE 2: Loading Generator #######
+        ####### STAGE 2: Loading Generator #######    --此处可改
         alpha, beta_p, beta_l, loss_imp = self.loadings(feature, z_q)
         prior_factor_normed = self.z_prior_norm(prior_factor)
 
